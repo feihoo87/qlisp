@@ -1,0 +1,54 @@
+[build-system]
+requires = [ "setuptools", "cython" ]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "qlisp"
+license = {text = ""}
+authors = [{name = "feihoo87", email = "feihoo87@gmail.com"}]
+maintainers = [{name = "feihoo87", email = "feihoo87@gmail.com"}]
+description = "Simulator for qlisp"
+keywords = [
+    "qlisp",
+    "quantum",
+    "quantum computing",
+    "quantum programming",
+    "quantum circuit",
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "Operating System :: Microsoft :: Windows",
+    "Operating System :: POSIX :: Linux",
+    "Operating System :: MacOS :: MacOS X",
+    "Topic :: Scientific/Engineering :: Mathematics",
+    "Topic :: Scientific/Engineering :: Physics",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+]
+requires-python = ">= 3.10"
+dependencies = [
+    "pycycles>=1.0.3",
+    "numpy>=1.13.3",
+    "scipy>=1.0.0"
+]
+dynamic = ["version"]
+
+[project.urls]
+Homepage = "https://github.com/feihoo87/qlisp"
+"Bug Reports" = "https://github.com/feihoo87/qlisp/issues"
+"Source" = "https://github.com/feihoo87/qlisp/"
+
+[project.readme]
+file = "README.md"
+content-type = "text/markdown"
+
+[tool.setuptools]
+license-files = ["LICENSE"]
+include-package-data = true
+
+[tool.setuptools.dynamic]
+version = {attr = "qlisp.version.__version__"}

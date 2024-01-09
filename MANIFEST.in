@@ -1,0 +1,3 @@
+include src/*.h
+include qlispc/*.pyi
+include MANIFEST.in
