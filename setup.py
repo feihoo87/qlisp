@@ -19,7 +19,7 @@ def get_extensions():
 
     extensions = []
 
-    for dirpath, dirnames, filenames in os.walk('qlispc'):
+    for dirpath, dirnames, filenames in os.walk('qlisp'):
         for filename in filenames:
             if filename.endswith('.pyx'):
                 extensions.append(
