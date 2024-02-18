@@ -3,7 +3,6 @@ from itertools import chain, product
 
 import numpy as np
 from scipy.linalg import eigh, expm, logm, sqrtm
-from waveforms.math.signal import decay, oscillation
 
 from .matricies import (BellPhiM, BellPhiP, BellPsiM, BellPsiP, sigmaI, sigmaX,
                         sigmaY, sigmaZ)
@@ -274,19 +273,3 @@ def randomDensity(N: int, rank: int | None = None) -> np.ndarray:
     A = np.random.randn(N, rank) + 1j * np.random.randn(N, rank)
     rho = A @ A.T.conj()
     return rho / np.trace(rho)
-
-
-##########################################################
-
-
-def rabi(t, TR, Omega, A, offset):
-    return oscillation(t, [(1, Omega)], A, offset) * decay(t, [TR])
-
-
-def cpmg(t, T1, Tphi, Delta, A, offset, phi=0):
-    return oscillation(t, [(np.exp(1j * phi), Delta)], A, offset) * decay(
-        t, [2 * T1, Tphi])
-
-
-def relaxation(t, T1, A, offset):
-    return A * decay(t, [T1]) + offset

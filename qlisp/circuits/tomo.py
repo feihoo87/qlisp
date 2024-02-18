@@ -9,7 +9,8 @@ from scipy.sparse.linalg import inv, lsqr
 from waveforms.cache import cache
 
 from ..math import dagger, normalize, randomUnitary, unitary2v, v2unitary
-from ..matricies import sigmaI, sigmaM, sigmaP, sigmaX, sigmaY, sigmaZ
+from ..matricies import (sigmaI, sigmaM, sigmaP, sigmaX, sigmaY, sigmaZ,
+                         synchronize_global_phase)
 from ..simple import _matrix_of_gates
 
 __base_op = {
@@ -355,7 +356,6 @@ def U_to_chi(U, basis=pauli_basis):
 
 
 def chi_to_U(chi, basis=pauli_basis, U0=None):
-    from waveforms.quantum.clifford.mat import normalize
 
     def unlikelihood(v):
         U = v2unitary(v)
@@ -372,7 +372,7 @@ def chi_to_U(chi, basis=pauli_basis, U0=None):
     else:
         v_guess = unitary2v(U0)
     v = optimize.minimize(unlikelihood, v_guess, method='BFGS')['x']
-    return normalize(v2unitary(v))
+    return synchronize_global_phase(v2unitary(v))
 
 
 __all__ = ["qst", "qst_mle", "qpt", "qstOpList", "qptInitList"]
