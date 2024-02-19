@@ -375,4 +375,6 @@ def chi_to_U(chi, basis=pauli_basis, U0=None):
     return synchronize_global_phase(v2unitary(v))
 
 
-__all__ = ["qst", "qst_mle", "qpt", "qstOpList", "qptInitList"]
+__all__ = [
+    "qst", "qst_mle", "qpt", "qstOpList", "qptInitList", "U_to_chi", "chi_to_U"
+]
