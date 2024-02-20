@@ -63,12 +63,16 @@ def gate2mat(gate, ignores=[]):
             mat = _matrix_of_gates[gate][0]()
         else:
             mat = _matrix_of_gates[gate][0]
-        N = round(np.log2(mat.shape[0]))
+        N = _matrix_of_gates[gate][1]
+        if N is None:
+            N = round(np.log2(mat.shape[0]))
         return mat, N
     elif isinstance(gate, tuple) and gate[0] in _matrix_of_gates:
         if callable(_matrix_of_gates[gate[0]][0]):
             mat = _matrix_of_gates[gate[0]][0](*gate[1:])
-            N = round(np.log2(mat.shape[0]))
+            N = _matrix_of_gates[gate][1]
+            if N is None:
+                N = round(np.log2(mat.shape[0]))
             return mat, N
         else:
             raise ValueError(
