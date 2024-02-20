@@ -16,7 +16,7 @@ _matrix_of_gates: dict[str, tuple[Callable | np.ndarray, int, str]] = {}
 def regesterGateMatrix(gate, mat, N=None, docs=''):
     if isinstance(mat, np.ndarray):
         mat = make_immutable(mat)
-    if N is None:
+    if N is None and isinstance(mat, np.ndarray):
         N = round(np.log2(mat.shape[0]))
     _matrix_of_gates[gate] = (mat, N, docs)
 
