@@ -95,5 +95,9 @@ def fSim(theta: float, phi: float) -> np.ndarray:
     ...
 
 
+def Unitary(matrix: np.ndarray) -> np.ndarray:
+    ...
+
+
 def synchronize_global_phase(U: np.ndarray) -> np.ndarray:
     ...

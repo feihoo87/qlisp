@@ -200,6 +200,20 @@ def fSim(theta, phi):
     ]) #yapf: disable
 
 
+def Unitary(mat):
+    """
+    Returns the unitary operator for a given matrix.
+    """
+    if not np.allclose(mat @ mat.conj().T, np.eye(mat.shape[0])):
+        raise ValueError("Input matrix is not unitary.")
+    if not np.allclose(np.linalg.det(mat), 1):
+        raise ValueError("Input matrix is not unitary.")
+    if 2**round(np.log2(mat.shape[0])) != mat.shape[0]:
+        raise ValueError("Rows of input matrix is not a power of 2.")
+
+    return mat
+
+
 def synchronize_global_phase(U):
     """
     将第一个非零的矩阵元相位转成 0，以保证仅相差一个全局相位的矩阵具有相同的表示。

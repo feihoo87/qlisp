@@ -6,8 +6,8 @@ from typing import Callable
 import numpy as np
 
 from .matricies import (CR, CX, CZ, SWAP, H, S, Sdag, SQiSWAP, T, Tdag, U,
-                        fSim, iSWAP, make_immutable, rfUnitary, sigmaI, sigmaX,
-                        sigmaY, sigmaZ)
+                        Unitary, fSim, iSWAP, make_immutable, rfUnitary,
+                        sigmaI, sigmaX, sigmaY, sigmaZ)
 
 _clifford_groups = {}
 _matrix_of_gates: dict[str, tuple[Callable | np.ndarray, int, str]] = {}
@@ -36,11 +36,12 @@ def is_clifford_gate(gate: str | tuple) -> bool:
     return re.match(r'^C(\d+)_(\d+)$', gate)
 
 
-def clifford_gate(gate: str):
+def clifford_gate(gate: str) -> tuple[np.ndarray, int]:
     try:
         from cycles import CliffordGroup
-        from cycles.clifford.funtions import (one_qubit_clifford_matricies,
-                                              two_qubit_clifford_matricies)
+
+        from .clifford.utils import (one_qubit_clifford_matricies,
+                                     two_qubit_clifford_matricies)
     except ImportError:
         return None
     match = re.match(r'^C(\d+)_(\d+)$', gate)
@@ -59,13 +60,16 @@ def clifford_gate(gate: str):
 def gate2mat(gate, ignores=[]):
     if isinstance(gate, str) and gate in _matrix_of_gates:
         if callable(_matrix_of_gates[gate][0]):
-            return _matrix_of_gates[gate][0](), _matrix_of_gates[gate][1]
+            mat = _matrix_of_gates[gate][0]()
         else:
-            return _matrix_of_gates[gate][:2]
+            mat = _matrix_of_gates[gate][0]
+        N = round(np.log2(mat.shape[0]))
+        return mat, N
     elif isinstance(gate, tuple) and gate[0] in _matrix_of_gates:
         if callable(_matrix_of_gates[gate[0]][0]):
-            return _matrix_of_gates[gate[0]][0](
-                *gate[1:]), _matrix_of_gates[gate[0]][1]
+            mat = _matrix_of_gates[gate[0]][0](*gate[1:])
+            N = round(np.log2(mat.shape[0]))
+            return mat, N
         else:
             raise ValueError(
                 f"Could not call {gate[0]}(*{gate[1:]}), `{gate[0]}` is not callable."
@@ -272,6 +276,7 @@ regesterGateMatrix('Ry', partial(rfUnitary, phi=np.pi / 2), 1)
 regesterGateMatrix('Rz', lambda p: U(theta=0, phi=0, lambda_=p), 1)
 regesterGateMatrix('fSim', fSim, 2)
 regesterGateMatrix('Cphase', lambda phi: fSim(theta=0, phi=phi), 2)
+regesterGateMatrix('Unitary', Unitary, None)
 
 # one qubit
 regesterGateMatrix('I', sigmaI())
@@ -284,6 +289,8 @@ regesterGateMatrix('-Y/2', np.array([[1, 1], [-1, 1]]) / np.sqrt(2))
 regesterGateMatrix('Z', sigmaZ())
 regesterGateMatrix('S', S)
 regesterGateMatrix('-S', Sdag)
+regesterGateMatrix('Z/2', S)
+regesterGateMatrix('-Z/2', Sdag)
 regesterGateMatrix('H', H)
 
 # non-clifford
