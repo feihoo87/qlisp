@@ -70,7 +70,7 @@ def gate2mat(gate, ignores=[]):
     elif isinstance(gate, tuple) and gate[0] in _matrix_of_gates:
         if callable(_matrix_of_gates[gate[0]][0]):
             mat = _matrix_of_gates[gate[0]][0](*gate[1:])
-            N = _matrix_of_gates[gate][1]
+            N = _matrix_of_gates[gate[0]][1]
             if N is None:
                 N = round(np.log2(mat.shape[0]))
             return mat, N
