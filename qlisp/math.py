@@ -249,11 +249,11 @@ def eof(rho: np.ndarray) -> float:
     return h((1 + arg) / 2.0)
 
 
-def randomUnitary(N: int) -> np.ndarray:
+def randomUnitary(N: int, theta=np.pi) -> np.ndarray:
     """Random unitary matrix of dimension N."""
     H = np.random.randn(N, N) + 1j * np.random.randn(N, N)
     H = (H + dagger(H)) / 2
-    U = expm(-1j * H)
+    U = expm(-1j * theta * H)
     return U
 
 
