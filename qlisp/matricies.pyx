@@ -200,6 +200,53 @@ def fSim(theta, phi):
     ]) #yapf: disable
 
 
+def A(x, y, z):
+    """
+    Gives the unitary A in KAK decomposition.
+
+    A(x, y, z) := expm(1j * (x * XX + y * YY + z * ZZ))
+    where XX = kron(sigma_x, sigma_x)
+          YY = kron(sigma_y, sigma_y)
+          ZZ = kron(sigma_z, sigma_z)
+    """
+    e = np.exp(1j * z)
+    ec = np.exp(-1j * z)
+    cm = np.cos(x - y)
+    cp = np.cos(x + y)
+    sm = np.sin(x - y)
+    sp = np.sin(x + y)
+
+    return np.array([
+        [   e*cm,        0,        0, 1j*e*sm],
+        [      0,    ec*cp, 1j*ec*sp,       0],
+        [      0, 1j*ec*sp,    ec*cp,       0],
+        [1j*e*sm,        0,        0,    e*cm]
+    ]) #yapf: disable
+
+
+c, s = np.cos(np.pi / 8), np.sin(np.pi / 8)
+
+B = make_immutable(np.array([
+    [c, 0, 0, 1j * s],
+    [0, s, 1j * c, 0],
+    [0, 1j * c, s, 0],
+    [1j * s, 0, 0, c]])) #yapf: disable
+
+M = make_immutable(np.array([
+    [1, 0, 0, 1j],
+    [0, 1j, 1, 0],
+    [0, 1j, -1, 0],
+    [1, 0, 0, -1j]]) * np.sqrt(0.5)) #yapf: disable
+
+M_DAG = make_immutable(M.T.conj(()))
+
+KAK_GAMMA = make_immutable(np.array([
+    [1, 1, 1, 1],
+    [1, 1, -1, -1],
+    [-1, 1, -1, 1],
+    [1, -1, -1, 1]]) / 4)  #yapf: disable
+
+
 def Unitary(mat):
     """
     Returns the unitary operator for a given matrix.
