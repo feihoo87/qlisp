@@ -240,12 +240,6 @@ M = make_immutable(np.array([
 
 M_DAG = make_immutable(M.T.conj(()))
 
-KAK_GAMMA = make_immutable(np.array([
-    [1, 1, 1, 1],
-    [1, 1, -1, -1],
-    [-1, 1, -1, 1],
-    [1, -1, -1, 1]]) / 4)  #yapf: disable
-
 
 def Unitary(mat):
     """
