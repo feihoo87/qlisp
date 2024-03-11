@@ -238,7 +238,7 @@ M = make_immutable(np.array([
     [0, 1j, -1, 0],
     [1, 0, 0, -1j]]) * np.sqrt(0.5)) #yapf: disable
 
-M_DAG = make_immutable(M.T.conj(()))
+M_DAG = make_immutable(M.T.conj())
 
 
 def Unitary(mat):
