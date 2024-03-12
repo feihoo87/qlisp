@@ -50,39 +50,85 @@ def draw(qlisp):
 
     circuit = QuantumCircuit(len(all_qubits), len(all_cbits))
 
+    parametric_gates = {
+        'Init': circuit.prepare_state,
+        'Rx': circuit.rx,
+        'Ry': circuit.ry,
+        'Rz': circuit.rz,
+        'P': circuit.p,
+        'U': circuit.u,
+        'u1': circuit.p,
+        'u2': lambda phi, lam: circuit.u(np.pi / 2, phi, lam),
+        'u3': circuit.u,
+        'rfUnirary': circuit.r,
+        'R': lambda phi: circuit.r(np.pi / 2, phi),
+        'CP': circuit.cp,
+        'CRx': circuit.crx,
+        'CRy': circuit.cry,
+        'CRz': circuit.crz,
+        'CU': circuit.cu
+    }
+
+    simple_gates = {
+        'I': circuit.id,
+        'X': circuit.x,
+        'Y': circuit.y,
+        'Z': circuit.z,
+        'H': circuit.h,
+        'T': circuit.t,
+        'S': circuit.s,
+        'X/2': circuit.sx,
+        'Z/2': circuit.s,
+        '-T': circuit.tdg,
+        '-S': circuit.sdg,
+        '-Z/2': circuit.sdg,
+        '-X/2': circuit.sxdg,
+        'Reset': circuit.reset,
+        'CX': circuit.cx,
+        'Cnot': circuit.cx,
+        'CZ': circuit.cz,
+        'CY': circuit.cy,
+        'CH': circuit.ch,
+        'iSWAP': circuit.iswap,
+        'SWAP': circuit.swap,
+        'CCX': circuit.ccx,
+        'CCZ': circuit.ccz,
+        'CSWAP': circuit.cswap,
+    }
+
     for gate, *qubits in qlisp:
         if gate_name(gate) == 'Measure':
             cbit = gate[1]
             circuit.measure([qubit_map[q] for q in qubits], [cbit_map[cbit]])
+        elif gate_name(gate) == 'Delay':
+            duration = gate[1]
+            if np.abs(duration) < 1e-9:
+                duration *= 1e12
+                unit = 'ps'
+            elif np.abs(duration) < 1e-6:
+                duration *= 1e9
+                unit = 'ns'
+            elif np.abs(duration) < 1e-3:
+                duration *= 1e6
+                unit = 'us'
+            elif np.abs(duration) < 1:
+                duration *= 1e3
+                unit = 'ms'
+            else:
+                unit = 's'
+            if duration >= 0:
+                circuit.delay(duration, qubit_map[qubits[0]], unit)
+            else:
+                label = f'Delay({duration:.1f} [{unit}])'
+                circuit.unitary(np.eye(2), [qubit_map[q] for q in qubits],
+                                label=label)
         elif gate_name(gate) == 'Barrier':
             circuit.barrier([qubit_map[q] for q in qubits])
-        elif gate_name(gate) in [
-                'CX', 'Cnot', 'CZ', 'CY', 'CH', 'iSWAP', 'SWAP'
-        ]:
-            {
-                'CX': circuit.cx,
-                'Cnot': circuit.cx,
-                'CZ': circuit.cz,
-                'CY': circuit.cy,
-                'CH': circuit.ch,
-                'iSWAP': circuit.iswap,
-                'SWAP': circuit.swap,
-            }[gate_name(gate)](*[qubit_map[q] for q in qubits])
-        elif gate_name(gate) in [
-                'I', 'X', 'Y', 'Z', 'H', 'T', 'S', '-T', '-S', 'Reset'
-        ]:
-            {
-                'I': circuit.id,
-                'X': circuit.x,
-                'Y': circuit.y,
-                'Z': circuit.z,
-                'H': circuit.h,
-                'T': circuit.t,
-                'S': circuit.s,
-                '-T': circuit.tdg,
-                '-S': circuit.sdg,
-                'Reset': circuit.reset
-            }[gate_name(gate)](qubit_map[qubits[0]])
+        elif gate_name(gate) in simple_gates:
+            simple_gates[gate_name(gate)](*[qubit_map[q] for q in qubits])
+        elif gate_name(gate) in parametric_gates:
+            parametric_gates[gate_name(gate)](*gate[1:],
+                                              *[qubit_map[q] for q in qubits])
         else:
             try:
                 mat, n = gate2mat(gate)
