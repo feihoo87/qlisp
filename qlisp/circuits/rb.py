@@ -1,14 +1,49 @@
 import random
 
 import numpy as np
+from cycles.clifford import cliffordOrder
 
+from ..clifford.utils import twoQubitCliffordSequence
 from ..simple import seq2mat
-from ._rb import cliffordOrder
-from ._rb.clifford import generateTwoQubitCliffordSequence, inv, mat2index, mul
-from ._rb.seq2mat import seq2qlisp
+from ._rb.clifford import inv, mat2index, mul
 from .utils import mapping_qubits
 
-_index2seq = [[seq] for seq in generateTwoQubitCliffordSequence()]
+_index2seq = [twoQubitCliffordSequence(i) for i in range(cliffordOrder(2))]
+
+
+def twoQubitGate(gates):
+    return {
+        ('CZ', 'CZ'): ('CZ', (0, 1)),
+        ('C', 'Z'): ('CZ', (0, 1)),
+        ('Z', 'C'): ('CZ', (0, 1)),
+        ('CX', 'CX'): ('Cnot', (0, 1)),
+        ('XC', 'XC'): ('Cnot', (1, 0)),
+        ('CR', 'CR'): ('CR', (0, 1)),
+        ('RC', 'RC'): ('CR', (1, 0)),
+        ('C', 'X'): ('Cnot', (0, 1)),
+        ('X', 'C'): ('Cnot', (1, 0)),
+        ('C', 'R'): ('CR', (0, 1)),
+        ('R', 'C'): ('CR', (1, 0)),
+        ('iSWAP', 'iSWAP'): ('iSWAP', (0, 1)),
+        ('SWAP', 'SWAP'): ('SWAP', (0, 1)),
+        ('SQiSWAP', 'SQiSWAP'): ('SQiSWAP', (0, 1)),
+    }[gates]
+
+
+def seq2qlisp(seq, qubits):
+    if len(seq) > 2:
+        raise ValueError("Only support 1 or 2 bits.")
+    if len(seq) != len(qubits):
+        raise ValueError("seq size and qubit num mismatched.")
+
+    qlisp = []
+    for gates in zip(*seq):
+        try:
+            qlisp.append(twoQubitGate(gates))
+        except:
+            for gate, i in zip(gates, qubits):
+                qlisp.append((gate, i))
+    return qlisp
 
 
 def circuit_to_index(circuit: list) -> int:
