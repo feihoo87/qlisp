@@ -1,3 +1,4 @@
+from ...clifford.utils import one_qubit_clifford_seq
 from ...matricies import synchronize_global_phase
 from ...simple import seq2mat as _seq2mat
 
@@ -33,7 +34,7 @@ def seq2qlisp(seq, qubits):
             qlisp.append(twoQubitGate(gates))
         except:
             for gate, i in zip(gates, qubits):
-                qlisp.append((gate, i))
+                qlisp.append((one_qubit_clifford_seq[gate], i))
     return qlisp
 
 
