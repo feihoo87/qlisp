@@ -85,6 +85,10 @@ def A(x: float,
     ...
 
 
+def Rzx(theta: float) -> np.ndarray:
+    ...
+
+
 def U(theta: float,
       phi: float,
       lambda_: float,

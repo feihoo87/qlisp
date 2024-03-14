@@ -224,6 +224,20 @@ def A(x, y, z):
     ]) #yapf: disable
 
 
+def Rzx(theta):
+    """
+    Gives the unitary operator:
+        Rzx(theta) := expm(-1j * theta / 2 * ZX)
+    """
+    c, s = np.cos(theta / 2), 1j * np.sin(theta / 2)
+    return np.array([
+        [c, -s, 0, 0],
+        [-s, c, 0, 0],
+        [ 0, 0, c, s],
+        [ 0, 0, s, c]
+    ]) #yapf: disable
+
+
 c, s = np.cos(np.pi / 8), np.sin(np.pi / 8)
 
 B = make_immutable(np.array([
