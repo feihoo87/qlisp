@@ -1,3 +1,4 @@
 include src/*.h
 include qlisp/*.pyi
+include qlisp/*.pyx
 include MANIFEST.in
