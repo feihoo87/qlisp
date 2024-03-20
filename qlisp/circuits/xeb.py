@@ -67,7 +67,7 @@ def specklePurity(Pm_lst: Iterable[np.array], D: int = None) -> float:
     variance, thus the Speckle Purity can be estimated from the variance of the
     experimental measured probabilities Pm.
 
-    Purity = Var(Pm) / (D^2 * (D + 1) / (D - 1))
+    Purity = Var(Pm) * (D^2 * (D + 1) / (D - 1))
 
     Ref:
         https://doi.org/10.1038/s41586-019-1666-5
