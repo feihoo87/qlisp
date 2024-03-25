@@ -8,7 +8,7 @@ from cycles import Cycles, find_permutation
 from ..matricies import sigmaI, sigmaX, sigmaY, sigmaZ
 from ..simple import seq2mat
 from .utils import (one_qubit_clifford_mul_table, one_qubit_clifford_seq,
-                       one_qubit_clifford_seq_inv)
+                    one_qubit_clifford_seq_inv)
 
 
 def find_permutation_for_Unitary(U: np.ndarray,
@@ -34,8 +34,11 @@ def find_permutation_for_Unitary(U: np.ndarray,
 
 class CliffordGroup(_CliffordGroup):
 
-    def __init__(self, N: int, graph: tuple[int, int] | None = None):
-        super().__init__(N, graph)
+    def __init__(self,
+                 N: int,
+                 graph: tuple[int, int] | None = None,
+                 generators: dict[tuple, Cycles] | None = None):
+        super().__init__(N, graph, generators)
         for i in range(self.N):
             for g in one_qubit_clifford_seq:
                 self.circuit_to_permutation([(g, i)])
@@ -51,10 +54,6 @@ class CliffordGroup(_CliffordGroup):
         perm = find_permutation_for_Unitary(mat, self.N)
         perm = self.express(perm)
         return perm
-
-    def permutation_to_circuit(self, perm):
-        perm = self.express(perm)
-        return [self.reversed_map[c] for c in perm.expand()]
 
     def circuit_to_permutation(self, circuit):
         perm = Cycles()
