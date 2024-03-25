@@ -31,7 +31,7 @@ classifiers = [
 ]
 requires-python = ">= 3.10"
 dependencies = [
-    "pycycles>=1.0.3",
+    "pycycles>=1.0.5",
     "numpy>=1.13.3",
     "scipy>=1.0.0"
 ]
