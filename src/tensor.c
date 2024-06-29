@@ -181,7 +181,7 @@ double _qst_mat_element(
             result += re2 * re + im2 * im;
         }
     }
-    return result / (1 << op_list_len);
+    return result;
 }
 
 static PyObject *tensor_element(PyObject *self, PyObject *args)
@@ -251,7 +251,7 @@ static PyObject *qst_mat_element(PyObject *self, PyObject *args)
     gate_set.max_size = gate_set.max_row * gate_set.max_col;
     gate_set.length = (size_t)PyArray_DIM(gate_set_obj, 0);
 
-    return PyFloat_FromDouble(_qst_mat_element(&gate_set, op_list_len, op_list, r, c));
+    return PyFloat_FromDouble(_qst_mat_element(&gate_set, op_list_len, op_list, r, c) / (1 << op_list_len));
 }
 
 static PyObject *pauli_element(PyObject *self, PyObject *args)
@@ -433,9 +433,9 @@ static PyObject *QSTMatrixGenerator_next(QSTMatrixGeneratorObject *self)
         }
         self->count++;
 
-        if (ret >= 1e-18 || ret <= -1e-18)
+        if (ret >= 1e-16 || ret <= -1e-16)
         {
-            return _QSTMatrixGenerator_next_make_result(row, col, ret);
+            return _QSTMatrixGenerator_next_make_result(row, col, ret / (1 << self->number_of_qubit));
         }
     }
 }
