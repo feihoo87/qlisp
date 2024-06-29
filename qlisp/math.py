@@ -179,7 +179,7 @@ def rho2bloch(rho):
     return np.asarray([
         np.sum(rho * reduce(np.kron, s).T).real
         for s in product(bases, repeat=N)
-    ][1:])
+    ][1:]) / rho.shape[0]
 
 
 def bloch2rho(V):
@@ -187,11 +187,11 @@ def bloch2rho(V):
     rho2bloch 的逆函数
     """
     bases = [s0, s1, s2, s3]
-    N = int(np.log2(len(V) + 1) / 2)
+    N = round(np.log2(len(V) + 1) / 2)
     rho = reduce(np.add,
                  (a * reduce(np.kron, s)
                   for (a, s) in zip(chain([1], V), product(bases, repeat=N))))
-    return rho / rho.shape[0]
+    return rho
 
 
 def traceDistance(rho: np.ndarray, sigma: np.ndarray) -> float:
