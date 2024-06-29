@@ -4,11 +4,14 @@ from itertools import chain, combinations, product, repeat
 
 import numpy as np
 from scipy import linalg, optimize
+from scipy.linalg import lstsq
 from scipy.sparse import coo_matrix, csc_matrix
 from scipy.sparse.linalg import inv, lsqr
 from waveforms.cache import cache
 
-from ..math import dagger, normalize, randomUnitary, unitary2v, v2unitary
+from .._tensor import QSTMatrixGenerator
+from ..math import (bloch2rho, dagger, normalize, randomUnitary, rho2bloch,
+                    unitary2v, v2unitary)
 from ..matricies import (sigmaI, sigmaM, sigmaP, sigmaX, sigmaY, sigmaZ,
                          synchronize_global_phase)
 from ..simple import _matrix_of_gates
@@ -33,10 +36,17 @@ real_pauli_basis = ['I', 'sigmaX', 'Y', 'Z']
 raise_lower_basis = ['I', 'sigmaP', 'sigmaM', 'sigmaZ']
 
 
+def get_base_op(k):
+    if k not in __base_op:
+        from qlisp import seq2mat
+        __base_op[k] = seq2mat([(k, 0)])
+    return __base_op[k]
+
+
 def tensorMatrix(transform):
     """transform 所对应变换矩阵
     """
-    return reduce(np.kron, (__base_op[k] for k in transform))
+    return reduce(np.kron, (get_base_op(k) for k in transform))
 
 
 @lru_cache()
@@ -46,7 +56,7 @@ def tensorElement(opList, r, c):
     N = len(opList)
     return reduce(
         operator.mul,
-        (__base_op[k][int(x)][int(y)]
+        (get_base_op(k)[int(x)][int(y)]
          for k, x, y in zip(opList, f'{r:b}'.zfill(N), f'{c:b}'.zfill(N))))
 
 
@@ -148,7 +158,7 @@ def formUMatrix(n, gates):
     return A, b
 
 
-def qst(diags, gates=qst_gates):
+def qst_(diags, gates=qst_gates):
     """Convert a set of diagonal measurements into a density matrix.
     
     diags - measured probabilities (diagonal elements) after acting
@@ -168,6 +178,45 @@ def qst(diags, gates=qst_gates):
     P = np.asarray(diags)[:, 1:]
     v, *_ = lsqr(A, P.flatten() - b)
     return vToRho(v)
+
+
+def qst(diags, gate_set=qst_gates):
+    """Convert a set of diagonal measurements into a density matrix.
+    
+    diags - measured probabilities (diagonal elements) after acting
+            on the state with each of the unitaries from the qst
+            protocol.
+    gate_set - qst protocol
+            yield unitaries from product(gates, repeat=N).
+            gates should be choosed from {I, X, Y, Z, H, S, -S,
+            X/2, Y/2, -X/2, -Y/2}.
+    """
+    from qlisp import seq2mat
+
+    diags = np.asarray(diags)
+    N = len(diags[0])  # size of density matrix
+    n = int(np.log2(N))  # number of qubits
+
+    gate_set_mat = np.array([seq2mat([(gate, 0)]) for gate in gate_set])
+    gate_set_dims = np.array([[2, 2]] * len(gate_set))
+
+    shape = (len(gate_set)**n * (2**n - 1), 4**n - 1)
+    if shape[0] * shape[1] < 1024 * 1024:
+        M = np.zeros(shape)
+        for i, j, v in QSTMatrixGenerator(gate_set_mat, gate_set_dims, n):
+            M[i, j] = v
+
+        v, *_ = lstsq(M, diags[:, 1:].flatten() - 1 / N)
+    else:
+        A_data, A_i, A_j = [], [], []
+        for i, j, v in QSTMatrixGenerator(gate_set_mat, gate_set_dims, n):
+            A_data.append(v)
+            A_i.append(i)
+            A_j.append(j)
+        M = coo_matrix((A_data, (A_i, A_j)))
+        v, *_ = lsqr(M, diags[:, 1:].flatten() - 1 / N)
+
+    return bloch2rho(v)
 
 
 @cache()
@@ -259,6 +308,33 @@ def chi0(rhosIn, rhosOut):
 
     chi0, resids, rank, s = linalg.lstsq(rhosIn_mat,
                                          rhosOut_mat,
+                                         overwrite_a=True,
+                                         overwrite_b=True)
+    return chi0
+
+
+def chi0_from_probs(init_ops, final_ops, probs):
+    inputs = []
+
+    dim = probs[0].shape[0]
+
+    for init_op, final_op in zip(init_ops, final_ops):
+        for j in range(dim):
+            for k in range(dim):
+                for p in range(dim):
+                    for q in range(dim):
+                        inputs.append([
+                            tensorElement(init_op, k, 0) *
+                            np.conj(tensorElement(init_op, q, 0)) *
+                            tensorElement(final_op, i, j) *
+                            np.conj(tensorElement(final_op, i, p))
+                            for i in range(dim)
+                        ])
+
+    inputs = np.asarray(inputs)
+
+    chi0, resids, rank, s = linalg.lstsq(inputs,
+                                         probs,
                                          overwrite_a=True,
                                          overwrite_b=True)
     return chi0
