@@ -408,6 +408,7 @@ static PyObject *QSTMatrixGenerator_next(QSTMatrixGeneratorObject *self)
             return NULL;
         }
 
+        size_t N = (1 << self->number_of_qubit);
         size_t row = self->count / (self->max_col - 1);
         size_t col = self->count % (self->max_col - 1);
 
@@ -433,9 +434,9 @@ static PyObject *QSTMatrixGenerator_next(QSTMatrixGeneratorObject *self)
         }
         self->count++;
 
-        if (ret >= 1e-16 || ret <= -1e-16)
+        if (ret >= 1e-18 || ret <= -1e-18)
         {
-            return _QSTMatrixGenerator_next_make_result(row, col, ret / (1 << self->number_of_qubit));
+            return _QSTMatrixGenerator_next_make_result(row, col, ret / N);
         }
     }
 }
