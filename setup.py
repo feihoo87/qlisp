@@ -16,8 +16,13 @@ def module_name(dirpath, filename):
 
 
 def get_extensions():
+    import numpy as np
 
-    extensions = []
+    extensions = [
+        Extension("qlisp._tensor",
+                  sources=["src/tensor.c"],
+                  include_dirs=["src", np.get_include()])
+    ]
 
     for dirpath, dirnames, filenames in os.walk('qlisp'):
         for filename in filenames:
