@@ -184,6 +184,69 @@ double _qst_mat_element(
     return result;
 }
 
+double _qpt_mat_element(Operators *gate_set,
+                        size_t N, npy_intp *before_op_list, npy_intp *after_op_list,
+                        size_t m, size_t n, size_t i)
+{
+    double re, im, real, imag, tmp, ret = 0.0;
+    size_t dim = 1 << N;
+
+    for (size_t j = 0; j < dim; j++)
+    {
+        for (size_t s = 0; s < dim; s++)
+        {
+            for (size_t k = 0; k < dim; k++)
+            {
+                for (size_t q = 0; q < dim; q++)
+                {
+                    real = 1.0;
+                    imag = 0.0;
+                    _tensor_element(gate_set, N, before_op_list, k, 0, &re, &im);
+                    tmp = real * re - imag * im;
+                    imag = real * im + imag * re;
+                    real = tmp;
+                    _tensor_element(gate_set, N, before_op_list, q, 0, &re, &im);
+                    tmp = real * re + imag * im;
+                    imag = -real * im + imag * re;
+                    real = tmp;
+                    _tensor_element(gate_set, N, after_op_list, i, j, &re, &im);
+                    tmp = real * re - imag * im;
+                    imag = real * im + imag * re;
+                    real = tmp;
+                    _tensor_element(gate_set, N, after_op_list, i, s, &re, &im);
+                    tmp = real * re + imag * im;
+                    imag = -real * im + imag * re;
+                    real = tmp;
+                    _pauli_tensor_element(N, m, s, j, &re, &im);
+                    tmp = real * re - imag * im;
+                    imag = real * im + imag * re;
+                    real = tmp;
+                    _pauli_tensor_element(N, n, q, k, &re, &im);
+                    tmp = real * re - imag * im;
+                    imag = real * im + imag * re;
+                    real = tmp;
+
+                    ret += real;
+                }
+            }
+        }
+    }
+
+    return ret;
+}
+
+static inline void _load_operators(
+    Operators *operators,
+    PyArrayObject *gate_set_obj, PyArrayObject *dims_obj)
+{
+    operators->data = (npy_complex128 *)PyArray_DATA(gate_set_obj);
+    operators->dims = (npy_intp *)PyArray_DATA(dims_obj);
+    operators->max_row = (size_t)PyArray_DIM(gate_set_obj, 1);
+    operators->max_col = (size_t)PyArray_DIM(gate_set_obj, 2);
+    operators->max_size = operators->max_row * operators->max_col;
+    operators->length = (size_t)PyArray_DIM(gate_set_obj, 0);
+}
+
 static PyObject *tensor_element(PyObject *self, PyObject *args)
 {
     PyArrayObject *op_list_obj, *operators_obj, *dims_obj;
@@ -207,12 +270,7 @@ static PyObject *tensor_element(PyObject *self, PyObject *args)
     npy_intp *op_list = (npy_intp *)PyArray_DATA(op_list_obj);
     int op_list_len = (int)PyArray_DIM(op_list_obj, 0);
 
-    operators.data = (npy_complex128 *)PyArray_DATA(operators_obj);
-    operators.dims = (npy_intp *)PyArray_DATA(dims_obj);
-    operators.max_row = (size_t)PyArray_DIM(operators_obj, 1);
-    operators.max_col = (size_t)PyArray_DIM(operators_obj, 2);
-    operators.max_size = operators.max_row * operators.max_col;
-    operators.length = (size_t)PyArray_DIM(operators_obj, 0);
+    _load_operators(&operators, operators_obj, dims_obj);
 
     double real, imag;
 
@@ -244,14 +302,39 @@ static PyObject *qst_mat_element(PyObject *self, PyObject *args)
     npy_intp *op_list = (npy_intp *)PyArray_DATA(op_list_obj);
     int op_list_len = (int)PyArray_DIM(op_list_obj, 0);
 
-    gate_set.data = (npy_complex128 *)PyArray_DATA(gate_set_obj);
-    gate_set.dims = (npy_intp *)PyArray_DATA(dims_obj);
-    gate_set.max_row = (size_t)PyArray_DIM(gate_set_obj, 1);
-    gate_set.max_col = (size_t)PyArray_DIM(gate_set_obj, 2);
-    gate_set.max_size = gate_set.max_row * gate_set.max_col;
-    gate_set.length = (size_t)PyArray_DIM(gate_set_obj, 0);
+    _load_operators(&gate_set, gate_set_obj, dims_obj);
 
     return PyFloat_FromDouble(_qst_mat_element(&gate_set, op_list_len, op_list, r, c) / (1 << op_list_len));
+}
+
+static PyObject *qpt_mat_element(PyObject *self, PyObject *args)
+{
+    PyArrayObject *gate_set_obj, *dims_obj, *before_list_obj, *after_list_obj;
+    Operators gate_set;
+    size_t m, n, i;
+
+    // Parse the input tuple
+    if (!PyArg_ParseTuple(args, "OOOOnnn", &gate_set_obj, &dims_obj, &before_list_obj, &after_list_obj, &m, &n, &i))
+    {
+        return NULL;
+    }
+
+    // Ensure the inputs are numpy arrays
+    if (!PyArray_Check(before_list_obj) || !PyArray_Check(after_list_obj) || !PyArray_Check(gate_set_obj) || !PyArray_Check(dims_obj))
+    {
+        PyErr_SetString(PyExc_TypeError, "Inputs must be numpy arrays");
+        return NULL;
+    }
+
+    // Get pointers to the data as C-types
+    npy_intp *before_op_list = (npy_intp *)PyArray_DATA(before_list_obj);
+    npy_intp *after_op_list = (npy_intp *)PyArray_DATA(after_list_obj);
+
+    int N = (int)PyArray_DIM(before_list_obj, 0);
+
+    _load_operators(&gate_set, gate_set_obj, dims_obj);
+
+    return PyFloat_FromDouble(_qpt_mat_element(&gate_set, N, before_op_list, before_op_list, m, n, i));
 }
 
 static PyObject *pauli_element(PyObject *self, PyObject *args)
@@ -465,6 +548,7 @@ static PyMethodDef TensorMethods[] = {
     {"tensor_element", tensor_element, METH_VARARGS, "Compute the tensor element"},
     {"pauli_element", pauli_element, METH_VARARGS, "Compute the pauli element"},
     {"qst_mat_element", qst_mat_element, METH_VARARGS, "Compute the qst matrix element"},
+    {"qpt_mat_element", qpt_mat_element, METH_VARARGS, "Compute the qpt matrix element"},
     {NULL, NULL, 0, NULL}};
 
 static struct PyModuleDef tensormodule = {
