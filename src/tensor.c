@@ -320,7 +320,10 @@ static PyObject *qpt_mat_element(PyObject *self, PyObject *args)
     }
 
     // Ensure the inputs are numpy arrays
-    if (!PyArray_Check(before_list_obj) || !PyArray_Check(after_list_obj) || !PyArray_Check(gate_set_obj) || !PyArray_Check(dims_obj))
+    if (!PyArray_Check(before_list_obj)
+        || !PyArray_Check(after_list_obj)
+        || !PyArray_Check(gate_set_obj)
+        || !PyArray_Check(dims_obj))
     {
         PyErr_SetString(PyExc_TypeError, "Inputs must be numpy arrays");
         return NULL;
@@ -334,7 +337,7 @@ static PyObject *qpt_mat_element(PyObject *self, PyObject *args)
 
     _load_operators(&gate_set, gate_set_obj, dims_obj);
 
-    return PyFloat_FromDouble(_qpt_mat_element(&gate_set, N, before_op_list, before_op_list, m, n, i));
+    return PyFloat_FromDouble(_qpt_mat_element(&gate_set, N, before_op_list, after_op_list, m, n, i));
 }
 
 static PyObject *pauli_element(PyObject *self, PyObject *args)
