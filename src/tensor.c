@@ -79,16 +79,14 @@ void _pauli_tensor_element(
     size_t r, size_t c,
     double *real, double *imag)
 {
+    unsigned int mask = 0x9669;
+
     *real = 1.0;
     *imag = 0.0;
     n <<= 2;
-
     for (int i = op_list_len - 1; i >= 0; i--)
     {
-        unsigned int mask = 0x9669;
-
         size_t j = (n & 0xC) | ((r << 1) & 2) | (c & 1);
-        n >>= 2;
 
         if ((mask & (1 << j)) == 0)
         {
@@ -96,6 +94,7 @@ void _pauli_tensor_element(
             *imag = 0.0;
             return;
         }
+        n >>= 2;
 
         npy_complex128 value = paulis_data[j];
 
