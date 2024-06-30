@@ -435,7 +435,7 @@ static PyObject *QSTMatrixGenerator_iter(PyObject *self)
     return self;
 }
 
-static inline PyObject *_QSTMatrixGenerator_next_make_result(long r, long c, double v)
+static inline PyObject *_make_tuple(long r, long c, double v)
 {
     PyObject *tuple = PyTuple_New(3);
     if (!tuple)
@@ -522,7 +522,7 @@ static PyObject *QSTMatrixGenerator_next(QSTMatrixGeneratorObject *self)
 
         if (ret >= 1e-18 || ret <= -1e-18)
         {
-            return _QSTMatrixGenerator_next_make_result(row, col, ret / N);
+            return _make_tuple(row, col, ret / N);
         }
     }
 }
