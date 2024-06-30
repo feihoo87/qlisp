@@ -66,14 +66,19 @@ static inline size_t power(size_t a, size_t N)
     return result;
 }
 
+static inline void complex_imul(double *real, double *imag, double re, double im)
+{
+    double tmp = *real * re - *imag * im;
+    *imag = *real * im + *imag * re;
+    *real = tmp;
+}
+
 void _pauli_tensor_element(
     size_t op_list_len,
     size_t n,
     size_t r, size_t c,
     double *real, double *imag)
 {
-    double re, im;
-
     *real = 1.0;
     *imag = 0.0;
     n <<= 2;
@@ -94,11 +99,7 @@ void _pauli_tensor_element(
 
         npy_complex128 value = paulis_data[j];
 
-        re = *real * value.real - *imag * value.imag;
-        im = *real * value.imag + *imag * value.real;
-
-        *real = re;
-        *imag = im;
+        complex_imul(real, imag, value.real, value.imag);
 
         r >>= 1;
         c >>= 1;
@@ -112,8 +113,6 @@ void _tensor_element(
     size_t r, size_t c,
     double *real, double *imag)
 {
-    double re, im;
-
     *real = 1.0;
     *imag = 0.0;
 
@@ -132,11 +131,7 @@ void _tensor_element(
             return;
         }
 
-        re = *real * value.real - *imag * value.imag;
-        im = *real * value.imag + *imag * value.real;
-
-        *real = re;
-        *imag = im;
+        complex_imul(real, imag, value.real, value.imag);
 
         r /= rows;
         c /= cols;
@@ -173,9 +168,7 @@ double _qst_mat_element(
             {
                 continue;
             }
-            tmp = re2 * re - im2 * im;
-            im2 = re2 * im + im2 * re;
-            re2 = tmp;
+            complex_imul(&re2, &im2, re, im);
             _tensor_element(gate_set, op_list_len, op_list, i, l, &re, &im);
             // printf("U[%d%d] ==> re: %f, im: %f\n", i, l, re, im);
             result += re2 * re + im2 * im;
@@ -193,38 +186,49 @@ double _qpt_mat_element(Operators *gate_set,
 
     for (size_t j = 0; j < dim; j++)
     {
+        _tensor_element(gate_set, N, after_op_list, i, j, &re, &im);
+        if (re == 0 && im == 0)
+            continue;
+        double Ur = re;
+        double Ui = im;
+
         for (size_t s = 0; s < dim; s++)
         {
+            _pauli_tensor_element(N, m, s, j, &re, &im);
+            if (re == 0 && im == 0)
+                continue;
+            real = Ur;
+            imag = Ui;
+            complex_imul(&real, &imag, re, im);
+            _tensor_element(gate_set, N, after_op_list, i, s, &re, &im); // conj
+            if (re == 0 && im == 0)
+                continue;
+            complex_imul(&real, &imag, re, -im);
+            double Vr = real;
+            double Vi = imag;
+
             for (size_t k = 0; k < dim; k++)
             {
+                _tensor_element(gate_set, N, before_op_list, k, 0, &re, &im);
+                if (re == 0 && im == 0)
+                    continue;
+                real = Vr;
+                imag = Vi;
+                complex_imul(&real, &imag, re, im);
+                double Wr = real;
+                double Wi = imag;
                 for (size_t q = 0; q < dim; q++)
                 {
-                    real = 1.0;
-                    imag = 0.0;
-                    _tensor_element(gate_set, N, before_op_list, k, 0, &re, &im);
-                    tmp = real * re - imag * im;
-                    imag = real * im + imag * re;
-                    real = tmp;
-                    _tensor_element(gate_set, N, before_op_list, q, 0, &re, &im);
-                    tmp = real * re + imag * im;
-                    imag = -real * im + imag * re;
-                    real = tmp;
-                    _tensor_element(gate_set, N, after_op_list, i, j, &re, &im);
-                    tmp = real * re - imag * im;
-                    imag = real * im + imag * re;
-                    real = tmp;
-                    _tensor_element(gate_set, N, after_op_list, i, s, &re, &im);
-                    tmp = real * re + imag * im;
-                    imag = -real * im + imag * re;
-                    real = tmp;
-                    _pauli_tensor_element(N, m, s, j, &re, &im);
-                    tmp = real * re - imag * im;
-                    imag = real * im + imag * re;
-                    real = tmp;
                     _pauli_tensor_element(N, n, q, k, &re, &im);
-                    tmp = real * re - imag * im;
-                    imag = real * im + imag * re;
-                    real = tmp;
+                    if (re == 0 && im == 0)
+                        continue;
+                    real = Wr;
+                    imag = Wi;
+                    complex_imul(&real, &imag, re, im);
+                    _tensor_element(gate_set, N, before_op_list, q, 0, &re, &im); // conj
+                    if (re == 0 && im == 0)
+                        continue;
+                    complex_imul(&real, &imag, re, -im);
 
                     ret += real;
                 }
@@ -320,10 +324,7 @@ static PyObject *qpt_mat_element(PyObject *self, PyObject *args)
     }
 
     // Ensure the inputs are numpy arrays
-    if (!PyArray_Check(before_list_obj)
-        || !PyArray_Check(after_list_obj)
-        || !PyArray_Check(gate_set_obj)
-        || !PyArray_Check(dims_obj))
+    if (!PyArray_Check(before_list_obj) || !PyArray_Check(after_list_obj) || !PyArray_Check(gate_set_obj) || !PyArray_Check(dims_obj))
     {
         PyErr_SetString(PyExc_TypeError, "Inputs must be numpy arrays");
         return NULL;
@@ -388,7 +389,6 @@ static PyObject *QSTMatrixGenerator_new(PyTypeObject *type, PyObject *args, PyOb
 static int QSTMatrixGenerator_init(QSTMatrixGeneratorObject *self, PyObject *args, PyObject *kwds)
 {
     PyArrayObject *gate_set_obj, *dims_obj;
-    Operators gate_set;
     size_t number_of_qubits;
 
     // Parse the input tuple
@@ -404,22 +404,10 @@ static int QSTMatrixGenerator_init(QSTMatrixGeneratorObject *self, PyObject *arg
         return -1;
     }
 
-    // Get pointers to the data as C-types
-    self->gate_set.data = (npy_complex128 *)PyArray_DATA(gate_set_obj);
-    self->gate_set.dims = (npy_intp *)PyArray_DATA(dims_obj);
-    self->gate_set.max_row = (size_t)PyArray_DIM(gate_set_obj, 1);
-    self->gate_set.max_col = (size_t)PyArray_DIM(gate_set_obj, 2);
-    self->gate_set.max_size = self->gate_set.max_row * self->gate_set.max_col;
-    self->gate_set.length = (size_t)PyArray_DIM(gate_set_obj, 0);
+    _load_operators(&(self->gate_set), gate_set_obj, dims_obj);
 
-    // self->current = 0;
-    // self->stop = power(gate_set.length, number_of_qubits);
     self->number_of_qubit = number_of_qubits;
     self->current_op_list = (npy_intp *)calloc(number_of_qubits, sizeof(npy_intp));
-    // if (next_product(self->current_op_list, self->number_of_qubit, self->gate_set.length))
-    // {
-    //     self->number_of_qubit = 0;
-    // }
     self->r = 1;
     self->c = 1;
     self->count = 0;
@@ -509,13 +497,13 @@ static PyObject *QSTMatrixGenerator_next(QSTMatrixGeneratorObject *self)
         {
             self->c = 1;
             self->r++;
-        }
-        if (self->r >= self->max_row)
-        {
-            self->r = 1;
-            if (next_product(self->current_op_list, self->number_of_qubit, self->gate_set.length - 1))
+            if (self->r >= self->max_row)
             {
-                self->number_of_qubit = 0;
+                self->r = 1;
+                if (next_product(self->current_op_list, self->number_of_qubit, self->gate_set.length - 1))
+                {
+                    self->number_of_qubit = 0;
+                }
             }
         }
         self->count++;
@@ -547,6 +535,142 @@ static PyTypeObject QSTMatrixGeneratorType = {
     .tp_iternext = (iternextfunc)QSTMatrixGenerator_next,
 };
 
+typedef struct
+{
+    PyObject_HEAD size_t number_of_qubit;
+    size_t m, n, i, count;
+    size_t max_row, max_col;
+    size_t column;
+    npy_intp *before_op_list;
+    npy_intp *after_op_list;
+    Operators gate_set;
+} QPTMatrixGeneratorObject;
+
+static PyObject *QPTMatrixGenerator_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
+{
+    QPTMatrixGeneratorObject *self;
+    self = (QPTMatrixGeneratorObject *)type->tp_alloc(type, 0);
+    if (self != NULL)
+    {
+        self->number_of_qubit = 0;
+        self->before_op_list = NULL;
+        self->after_op_list = NULL;
+        self->m = 0;
+        self->n = 0;
+        self->i = 0;
+        self->count = 0;
+        self->max_row = 0;
+        self->max_col = 0;
+        self->column = 0;
+    }
+    return (PyObject *)self;
+}
+
+static int QPTMatrixGenerator_init(QPTMatrixGeneratorObject *self, PyObject *args, PyObject *kwds)
+{
+    PyArrayObject *gate_set_obj, *dims_obj, *before_op_obj, *after_op_obj;
+
+    // Parse the input tuple
+    if (!PyArg_ParseTuple(args, "OOOO", &gate_set_obj, &dims_obj, &before_op_obj, &after_op_obj))
+    {
+        return -1;
+    }
+
+    // Ensure the inputs are numpy arrays
+    if (!PyArray_Check(dims_obj) || !PyArray_Check(gate_set_obj) || !PyArray_Check(before_op_obj) || !PyArray_Check(after_op_obj))
+    {
+        PyErr_SetString(PyExc_TypeError, "Inputs must be numpy arrays");
+        return -1;
+    }
+
+    _load_operators(&(self->gate_set), gate_set_obj, dims_obj);
+
+    self->number_of_qubit = (size_t)PyArray_DIM(before_op_obj, 0);
+    self->before_op_list = (npy_intp *)PyArray_DATA(before_op_obj);
+    self->after_op_list = (npy_intp *)PyArray_DATA(after_op_obj);
+
+    self->m = 1;
+    self->n = 1;
+    self->i = 1;
+    self->count = 0;
+    self->max_row = power(2, self->number_of_qubit);
+    self->max_col = power(4, self->number_of_qubit);
+    self->column = (self->max_col - 1) * (self->max_col - 1);
+
+    return 0;
+}
+
+static PyObject *QPTMatrixGenerator_iter(PyObject *self)
+{
+    Py_INCREF(self);
+    return self;
+}
+
+static PyObject *QPTMatrixGenerator_next(QPTMatrixGeneratorObject *self)
+{
+    while (1)
+    {
+        if (self->number_of_qubit == 0)
+        {
+            PyErr_SetNone(PyExc_StopIteration);
+            return NULL;
+        }
+
+        size_t row = self->count / self->column;
+        size_t col = self->count % self->column;
+
+        double ret = _qpt_mat_element(
+            &self->gate_set,
+            self->number_of_qubit,
+            self->before_op_list,
+            self->after_op_list,
+            self->m, self->n, self->i);
+
+        self->n++;
+
+        if (self->n >= self->max_col)
+        {
+            self->n = 1;
+            self->m++;
+            if (self->m >= self->max_col)
+            {
+                self->m = 1;
+                self->i++;
+                if (self->i >= self->max_row)
+                {
+                    self->i = 1;
+                    self->number_of_qubit = 0;
+                }
+            }
+        }
+        self->count++;
+
+        if (ret >= 1e-18 || ret <= -1e-18)
+        {
+            return _make_tuple(row, col, ret);
+        }
+    }
+}
+
+static void QPTMatrixGenerator_dealloc(QPTMatrixGeneratorObject *self)
+{
+    Py_TYPE(self)->tp_free((PyObject *)self);
+}
+
+static PyTypeObject QPTMatrixGeneratorType = {
+    PyVarObject_HEAD_INIT(NULL, 0)
+        .tp_name = "QPTMatrixGenerator",
+    .tp_doc = "QPT matrix element generator",
+    .tp_basicsize = sizeof(QPTMatrixGeneratorObject),
+    .tp_itemsize = 0,
+    .tp_flags = Py_TPFLAGS_DEFAULT,
+    .tp_new = QPTMatrixGenerator_new,
+    .tp_init = (initproc)QPTMatrixGenerator_init,
+    .tp_dealloc = (destructor)QPTMatrixGenerator_dealloc,
+    .tp_iter = QPTMatrixGenerator_iter,
+    .tp_iternext = (iternextfunc)QPTMatrixGenerator_next,
+};
+
 static PyMethodDef TensorMethods[] = {
     {"tensor_element", tensor_element, METH_VARARGS, "Compute the tensor element"},
     {"pauli_element", pauli_element, METH_VARARGS, "Compute the pauli element"},
@@ -570,6 +694,9 @@ PyMODINIT_FUNC PyInit__tensor(void)
     if (PyType_Ready(&QSTMatrixGeneratorType) < 0)
         return NULL;
 
+    if (PyType_Ready(&QPTMatrixGeneratorType) < 0)
+        return NULL;
+
     m = PyModule_Create(&tensormodule);
     if (m == NULL)
         return NULL;
@@ -578,6 +705,14 @@ PyMODINIT_FUNC PyInit__tensor(void)
     if (PyModule_AddObject(m, "QSTMatrixGenerator", (PyObject *)&QSTMatrixGeneratorType) < 0)
     {
         Py_DECREF(&QSTMatrixGeneratorType);
+        Py_DECREF(m);
+        return NULL;
+    }
+
+    Py_INCREF(&QPTMatrixGeneratorType);
+    if (PyModule_AddObject(m, "QPTMatrixGenerator", (PyObject *)&QPTMatrixGeneratorType) < 0)
+    {
+        Py_DECREF(&QPTMatrixGeneratorType);
         Py_DECREF(m);
         return NULL;
     }
