@@ -75,6 +75,23 @@ static inline void complex_imul(double *real, double *imag, double re, double im
     *real = tmp;
 }
 
+static inline int next_product(npy_intp *ret, size_t repeat, size_t max)
+{
+    for (size_t i = repeat; i > 0; i--)
+    {
+        if ((size_t)ret[i - 1] < max)
+        {
+            ret[i - 1]++;
+            for (size_t j = i; j < repeat; j++)
+            {
+                ret[j] = 0;
+            }
+            return 0;
+        }
+    }
+    return 1; // Indicate that we are done
+}
+
 void _pauli_tensor_element(
     size_t op_list_len,
     size_t n,
@@ -252,6 +269,38 @@ static inline void _load_operators(
     operators->length = (size_t)PyArray_DIM(gate_set_obj, 0);
 }
 
+static inline PyObject *_make_tuple(long r, long c, double v)
+{
+    PyObject *tuple = PyTuple_New(3);
+    if (!tuple)
+    {
+        return NULL;
+    }
+    PyObject *i = PyLong_FromLong(r);
+    if (!i)
+    {
+        Py_DECREF(tuple);
+        return NULL;
+    }
+    PyTuple_SetItem(tuple, 0, i);
+    PyObject *j = PyLong_FromLong(c);
+    if (!j)
+    {
+        Py_DECREF(tuple);
+        return NULL;
+    }
+    PyTuple_SetItem(tuple, 1, j);
+    PyObject *value = PyFloat_FromDouble(v);
+    if (!value)
+    {
+        Py_DECREF(tuple);
+        return NULL;
+    }
+    PyTuple_SetItem(tuple, 2, value);
+
+    return tuple;
+}
+
 static PyObject *tensor_element(PyObject *self, PyObject *args)
 {
     PyArrayObject *op_list_obj, *operators_obj, *dims_obj;
@@ -420,55 +469,6 @@ static PyObject *QSTMatrixGenerator_iter(PyObject *self)
 {
     Py_INCREF(self);
     return self;
-}
-
-static inline PyObject *_make_tuple(long r, long c, double v)
-{
-    PyObject *tuple = PyTuple_New(3);
-    if (!tuple)
-    {
-        return NULL;
-    }
-    PyObject *i = PyLong_FromLong(r);
-    if (!i)
-    {
-        Py_DECREF(tuple);
-        return NULL;
-    }
-    PyTuple_SetItem(tuple, 0, i);
-    PyObject *j = PyLong_FromLong(c);
-    if (!j)
-    {
-        Py_DECREF(tuple);
-        return NULL;
-    }
-    PyTuple_SetItem(tuple, 1, j);
-    PyObject *value = PyFloat_FromDouble(v);
-    if (!value)
-    {
-        Py_DECREF(tuple);
-        return NULL;
-    }
-    PyTuple_SetItem(tuple, 2, value);
-
-    return tuple;
-}
-
-static inline int next_product(npy_intp *ret, size_t repeat, size_t max)
-{
-    for (size_t i = repeat; i > 0; i--)
-    {
-        if ((size_t)ret[i - 1] < max)
-        {
-            ret[i - 1]++;
-            for (size_t j = i; j < repeat; j++)
-            {
-                ret[j] = 0;
-            }
-            return 0;
-        }
-    }
-    return 1; // Indicate that we are done
 }
 
 static PyObject *QSTMatrixGenerator_next(QSTMatrixGeneratorObject *self)
