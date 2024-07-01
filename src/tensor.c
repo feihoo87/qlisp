@@ -3,17 +3,19 @@
 #include <numpy/arrayobject.h>
 #include <string.h>
 
+typedef struct { double real, imag; } complex128;
+
 typedef struct
 {
     size_t max_row;
     size_t max_col;
     size_t max_size;
     size_t length;
-    npy_complex128 *data;
+    complex128 *data;
     npy_intp *dims;
 } Operators;
 
-npy_complex128 paulis_data[] = {
+complex128 paulis_data[] = {
     {1.0, 0.0}, // 0
     {0.0, 0.0},
     {0.0, 0.0},
@@ -96,7 +98,7 @@ void _pauli_tensor_element(
         }
         n >>= 2;
 
-        npy_complex128 value = paulis_data[j];
+        complex128 value = paulis_data[j];
 
         complex_imul(real, imag, value.real, value.imag);
 
@@ -121,7 +123,7 @@ void _tensor_element(
         size_t cols = operators->dims[op_list[i] * 2 + 1];
         size_t j = (r % rows) * operators->max_col + c % cols;
 
-        npy_complex128 value = operators->data[op_list[i] * operators->max_size + j];
+        complex128 value = operators->data[op_list[i] * operators->max_size + j];
 
         if (value.real == 0.0 && value.imag == 0.0)
         {
@@ -242,7 +244,7 @@ static inline void _load_operators(
     Operators *operators,
     PyArrayObject *gate_set_obj, PyArrayObject *dims_obj)
 {
-    operators->data = (npy_complex128 *)PyArray_DATA(gate_set_obj);
+    operators->data = (complex128 *)PyArray_DATA(gate_set_obj);
     operators->dims = (npy_intp *)PyArray_DATA(dims_obj);
     operators->max_row = (size_t)PyArray_DIM(gate_set_obj, 1);
     operators->max_col = (size_t)PyArray_DIM(gate_set_obj, 2);
