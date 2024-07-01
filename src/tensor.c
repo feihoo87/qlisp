@@ -146,7 +146,7 @@ double _qst_mat_element(
     size_t i, size_t j)
 {
     // U[ik] * P[j, kl] * conj(U[il])
-    double re, im, re2, im2, re3, im3, tmp;
+    double re, im, re2, im2, re3, im3;
     double result = 0.0;
 
     for (size_t k = 0; k < (1 << op_list_len); k++)
@@ -182,7 +182,7 @@ double _qpt_mat_element(Operators *gate_set,
                         size_t N, npy_intp *before_op_list, npy_intp *after_op_list,
                         size_t m, size_t n, size_t i)
 {
-    double re, im, real, imag, tmp, ret = 0.0;
+    double re, im, real, imag, ret = 0.0;
     size_t dim = 1 << N;
 
     for (size_t j = 0; j < dim; j++)
@@ -344,8 +344,6 @@ static PyObject *qpt_mat_element(PyObject *self, PyObject *args)
 
 static PyObject *pauli_element(PyObject *self, PyObject *args)
 {
-    PyArrayObject *gate_set_obj, *dims_obj, *op_list_obj;
-    Operators gate_set;
     size_t N, r, c, op_list_len;
 
     // Parse the input tuple
@@ -460,7 +458,7 @@ static inline int next_product(npy_intp *ret, size_t repeat, size_t max)
 {
     for (size_t i = repeat; i > 0; i--)
     {
-        if (ret[i - 1] < max)
+        if ((size_t)ret[i - 1] < max)
         {
             ret[i - 1]++;
             for (size_t j = i; j < repeat; j++)
