@@ -31,6 +31,8 @@ jobs:
         python -m pip install --upgrade pip
         python -m pip install --upgrade setuptools
         python -m pip install build pytest pytest-asyncio matplotlib numpy coveralls cython waveforms
+    - name: Build
+      run: |
         python setup.py build_ext --inplace
         python -m pip install .
     - name: Test with pytest
