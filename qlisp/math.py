@@ -188,9 +188,10 @@ def bloch2rho(V):
     """
     bases = [s0, s1, s2, s3]
     N = round(np.log2(len(V) + 1) / 2)
-    rho = reduce(np.add,
-                 (a * reduce(np.kron, s)
-                  for (a, s) in zip(chain([1], V), product(bases, repeat=N))))
+    rho = reduce(
+        np.add,
+        (a * reduce(np.kron, s)
+         for (a, s) in zip(chain([1 / 2**N], V), product(bases, repeat=N))))
     return rho
 
 
