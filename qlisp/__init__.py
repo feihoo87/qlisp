@@ -5,4 +5,4 @@ from .matricies import (CR, CX, CZ, SWAP, BellPhiM, BellPhiP, BellPsiM,
                         phiplus, psiminus, psiplus, rfUnitary, sigmaI, sigmaM,
                         sigmaP, sigmaX, sigmaY, sigmaZ,
                         synchronize_global_phase)
-from .simple import applySeq, regesterGateMatrix, seq2mat
+from .simple import applySeq, measure, regesterGateMatrix, seq2mat

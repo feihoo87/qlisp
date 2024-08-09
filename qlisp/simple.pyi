@@ -16,3 +16,7 @@ def applySeq(seq: list[tuple], psi0=None, ignores:list[str]=...) -> np.ndarray:
 
 def seq2mat(seq: list[tuple], U=None, ignores:list[str]=...) -> np.ndarray:
     ...
+
+
+def measure(circ: list[tuple]=[], rho0=None, A=None) -> np.ndarray:
+    ...

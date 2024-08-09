@@ -268,6 +268,32 @@ def seq2mat(seq, U=None, ignores=[]):
     return U
 
 
+def measure(circ=[], rho0=None, A=None):
+    """
+    Measure the state of quantum circuit.
+
+    Args:
+        circ: list of tuple, quantum circuit.
+        rho0: np.ndarray, initial state of quantum circuit.
+        A: np.ndarray, measurement error matrix.
+
+    Returns:
+        np.ndarray, probability of each state.
+    """
+    if rho0 is None:
+        U = seq2mat(circ)
+        rho0 = np.zeros_like(U)
+        rho0[0, 0] = 1
+    else:
+        N = round(np.log2(rho0.shape[0]))
+        U = seq2mat(circ + [('I', q) for q in range(N)])
+    rho = U @ rho0 @ U.T.conj()
+    if A is None:
+        return np.diag(rho).real
+    else:
+        return A @ np.diag(rho).real
+
+
 regesterGateMatrix('U', U, 1)
 regesterGateMatrix('u1', lambda p: U(theta=0, phi=0, lambda_=p), 1)
 regesterGateMatrix('u2', lambda phi, lam: U(np.pi / 2, phi, lam), 1)
