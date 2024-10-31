@@ -3,7 +3,131 @@
 #include <numpy/arrayobject.h>
 #include <string.h>
 
-typedef struct { double real, imag; } complex128;
+// 检查是否是 x86 平台并且支持 POPCNT 指令
+#if defined(__x86_64__) || defined(_M_X64) || defined(__i386) || defined(_M_IX86)
+#if defined(__POPCNT__) || (defined(_MSC_VER) && defined(__AVX__))
+#define HAS_POPCNT
+#endif
+#elif defined(__arm__) || defined(__aarch64__)
+#define HAS_ARM
+#endif
+
+static inline uint64_t bit_count(uint64_t n)
+{
+    uint64_t count = 0;
+
+#ifdef HAS_POPCNT
+#if defined(_MSC_VER) // 如果是 MSVC 编译器
+    count = __popcnt(n);
+#else // 其他支持 POPCNT 的编译器 (如 GCC)
+    __asm__(
+        "movl %1, %%eax;"      // 将输入值 n 移动到 eax 寄存器
+        "popcnt %%eax, %%eax;" // 使用 popcnt 指令计算位计数
+        "movl %%eax, %0;"      // 将结果存储到输出变量 count
+        : "=r"(count)          // 输出操作数
+        : "r"(n)               // 输入操作数
+        : "%eax"               // 受影响的寄存器
+    );
+#endif
+#elif defined(HAS_ARM)
+    count = __builtin_popcount(n);
+#else
+    // 如果不支持 POPCNT 指令，使用一个手动计算的方法
+    while (n)
+    {
+        count += n & 1;
+        n >>= 1;
+    }
+#endif
+
+    return count;
+}
+
+const uint64_t mask = 0x5555555555555555ULL;
+
+static inline uint64_t int_pauli_mul(uint64_t a, uint64_t b, uint64_t *ret)
+{
+    uint64_t c = a ^ b;
+    uint64_t az = a >> 1, bz = b >> 1, cz = c >> 1;
+
+    uint64_t l = (a | az) & (b | bz) & (c | cz) & mask;
+    uint64_t h = ((az & b) ^ (c & cz)) & l;
+    *ret = c;
+
+    // if Pauli matirx is sorted as I, X, Y, Z
+    // the sign is 1, -i, -1, i
+    // if Pauli matirx is sorted as I, X, Z, Y
+    // the sign is 1, i, -1, -i
+    return ((bit_count(h) << 1) ^ bit_count(l)) & 3;
+}
+
+void pauli_imul(uint64_t *left, uint64_t *right, size_t N)
+{
+    uint64_t sign = *left + *right;
+    uint64_t *first = right;
+    uint64_t a = *left >> 2, b = *right >> 2;
+    uint64_t c;
+    sign += int_pauli_mul(a, b, &c);
+    *right = c << 2;
+
+    left++;
+    right++;
+    N--;
+
+    while (N)
+    {
+        a = *left, b = *right;
+        sign += int_pauli_mul(a, b, &c);
+        *right = c;
+        left++;
+        right++;
+        N--;
+    }
+    *first |= sign & 3;
+}
+
+uint64_t _pauli_xzy_tensor_element_int(uint64_t n, uint64_t r, uint64_t c)
+{
+    uint64_t x = 0;
+    uint64_t z = 0;
+
+    for (uint64_t i = 0; i < 64; i++)
+    {
+        x |= ((n >> 2 * i) & 1) << i;
+        z |= ((n >> 2 * i + 1) & 1) << i;
+    }
+
+    if (x ^ r != c)
+        return 4;
+
+    // 0: 1, 1: i, 2: -1, 3: -i, 4 : 0
+    return (bit_count(x & z) + (bit_count(z & c) << 1)) & 3;
+}
+
+uint64_t _pauli_xyz_tensor_element_int(uint64_t n, uint64_t r, uint64_t c)
+{
+    uint64_t x = 0;
+    uint64_t z = 0;
+
+    for (uint64_t i = 0; i < 64; i++)
+    {
+        x |= ((n >> 2 * i) & 1) << i;
+        z |= ((n >> 2 * i + 1) & 1) << i;
+    }
+
+    x = x ^ z;
+
+    if (x ^ r != c)
+        return 4;
+
+    // 0: 1, 1: i, 2: -1, 3: -i, 4 : 0
+    return (bit_count(x & z) + (bit_count(z & c) << 1)) & 3;
+}
+
+typedef struct
+{
+    double real, imag;
+} complex128;
 
 typedef struct
 {
@@ -75,6 +199,35 @@ static inline void complex_imul(double *real, double *imag, double re, double im
     *real = tmp;
 }
 
+static inline void complex128_mul_pauli_elm(double *real, double *imag, uint8_t elm)
+{
+    double tmp;
+
+    switch (elm)
+    {
+    case 0:
+        break;
+    case 1:
+        tmp = *real;
+        *real = -*imag;
+        *imag = tmp;
+        break;
+    case 2:
+        *real = -*real;
+        *imag = -*imag;
+        break;
+    case 3:
+        tmp = *real;
+        *real = *imag;
+        *imag = -tmp;
+        break;
+    default:
+        *real = 0.0;
+        *imag = 0.0;
+        break;
+    }
+}
+
 static inline int next_product(npy_intp *ret, size_t repeat, size_t max)
 {
     for (size_t i = repeat; i > 0; i--)
@@ -92,36 +245,51 @@ static inline int next_product(npy_intp *ret, size_t repeat, size_t max)
     return 1; // Indicate that we are done
 }
 
-void _pauli_tensor_element(
+uint8_t _pauli_xzy_tensor_element_int(
     size_t op_list_len,
     size_t n,
-    size_t r, size_t c,
-    double *real, double *imag)
+    size_t r, size_t c)
 {
-    unsigned int mask = 0x9669;
+    size_t x = 0, z = 0;
 
-    *real = 1.0;
-    *imag = 0.0;
-    n <<= 2;
-    for (int i = op_list_len - 1; i >= 0; i--)
+    for (int i = 0; i <= op_list_len; i++)
     {
-        size_t j = (n & 0xC) | ((r << 1) & 2) | (c & 1);
-
-        if ((mask & (1 << j)) == 0)
-        {
-            *real = 0.0;
-            *imag = 0.0;
-            return;
-        }
-        n >>= 2;
-
-        complex128 value = paulis_data[j];
-
-        complex_imul(real, imag, value.real, value.imag);
-
-        r >>= 1;
-        c >>= 1;
+        x |= ((n >> 2 * i) & 1) << i;
+        z |= ((n >> 2 * i + 1) & 1) << i;
     }
+
+    if (x ^ r != c)
+    {
+        return 4;
+    }
+
+    // 0: 1, 1: i, 2: -1, 3: -i, 4 : 0
+    return (bit_count(x & z) + (bit_count(z & c) << 1)) & 3;
+}
+
+uint8_t _pauli_xyz_tensor_element_int(
+    size_t op_list_len,
+    size_t n,
+    size_t r, size_t c)
+{
+    size_t x = 0, y = 0, z = 0;
+
+    for (int i = 0; i <= op_list_len; i++)
+    {
+        x |= ((n >> 2 * i) & 1) << i;
+        y |= ((n >> 2 * i + 1) & 1) << i;
+    }
+
+    z = y;
+    x = x ^ y;
+
+    if (x ^ r != c)
+    {
+        return 4;
+    }
+
+    // 0: 1, 1: i, 2: -1, 3: -i, 4 : 0
+    return (bit_count(x & z) + (bit_count(z & c) << 1)) & 3;
 }
 
 void _tensor_element(
@@ -163,7 +331,7 @@ double _qst_mat_element(
     size_t i, size_t j)
 {
     // U[ik] * P[j, kl] * conj(U[il])
-    double re, im, re2, im2, re3, im3;
+    double re, im, re2, im2, re3, im3, tmp;
     double result = 0.0;
 
     for (size_t k = 0; k < (1 << op_list_len); k++)
@@ -180,13 +348,13 @@ double _qst_mat_element(
         {
             re2 = re3;
             im2 = im3;
-            _pauli_tensor_element(op_list_len, j, k, l, &re, &im);
+            uint8_t pauli = _pauli_tensor_element_int(op_list_len, j, k, l);
             // printf("P[%d,%d%d] ==> re: %f, im: %f\n", j, k, l, re, im);
-            if (re == 0.0 && im == 0.0)
+            if (pauli == 4)
             {
                 continue;
             }
-            complex_imul(&re2, &im2, re, im);
+            complex128_mul_pauli_elm(&re2, &im2, pauli);
             _tensor_element(gate_set, op_list_len, op_list, i, l, &re, &im);
             // printf("U[%d%d] ==> re: %f, im: %f\n", i, l, re, im);
             result += re2 * re + im2 * im;
@@ -212,12 +380,14 @@ double _qpt_mat_element(Operators *gate_set,
 
         for (size_t s = 0; s < dim; s++)
         {
-            _pauli_tensor_element(N, m, s, j, &re, &im);
-            if (re == 0 && im == 0)
+            uint8_t P1 = _pauli_tensor_element_int(N, m, s, j);
+            if (P1 == 4)
+            {
                 continue;
+            }
             real = Ur;
             imag = Ui;
-            complex_imul(&real, &imag, re, im);
+            complex128_mul_pauli_elm(&real, &imag, P1);
             _tensor_element(gate_set, N, after_op_list, i, s, &re, &im); // conj
             if (re == 0 && im == 0)
                 continue;
@@ -237,12 +407,14 @@ double _qpt_mat_element(Operators *gate_set,
                 double Wi = imag;
                 for (size_t q = 0; q < dim; q++)
                 {
-                    _pauli_tensor_element(N, n, q, k, &re, &im);
-                    if (re == 0 && im == 0)
+                    uint8_t P2 = _pauli_tensor_element_int(N, n, q, k);
+                    if (P2 == 4)
+                    {
                         continue;
+                    }
                     real = Wr;
                     imag = Wi;
-                    complex_imul(&real, &imag, re, im);
+                    complex128_mul_pauli_elm(&real, &imag, P2);
                     _tensor_element(gate_set, N, before_op_list, q, 0, &re, &im); // conj
                     if (re == 0 && im == 0)
                         continue;
@@ -401,9 +573,10 @@ static PyObject *pauli_element(PyObject *self, PyObject *args)
         return NULL;
     }
 
-    double real, imag;
+    double real = 1.0, imag = 0.0;
 
-    _pauli_tensor_element(op_list_len, N, r, c, &real, &imag);
+    uint8_t result = _pauli_tensor_element_int(op_list_len, N, r, c);
+    complex128_mul_pauli_elm(&real, &imag, result);
 
     return PyComplex_FromDoubles(real, imag);
 }
