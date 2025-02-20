@@ -94,12 +94,19 @@ CZ = make_immutable(
 iSWAP = make_immutable(
     np.array([[1, 0, 0, 0], [0, 0, 1j, 0], [0, 1j, 0, 0], [0, 0, 0, 1]],
              dtype=complex))
+INViSWAP = make_immutable(
+    np.array([[1, 0, 0, 0], [0, 0,-1j, 0], [0,-1j, 0, 0], [0, 0, 0, 1]],
+             dtype=complex))
 SWAP = make_immutable(
     np.array([[1, 0, 0, 0], [0, 0, 1, 0], [0, 1, 0, 0], [0, 0, 0, 1]],
              dtype=complex))
 SQiSWAP = make_immutable(
     np.array([[1, 0, 0, 0], [0, 1 / np.sqrt(2), 1j / np.sqrt(2), 0],
               [0, 1j / np.sqrt(2), 1 / np.sqrt(2), 0], [0, 0, 0, 1]],
+             dtype=complex))
+INVSQiSWAP = make_immutable(
+    np.array([[1, 0, 0, 0], [0, 1 / np.sqrt(2), -1j / np.sqrt(2), 0],
+              [0, -1j / np.sqrt(2), 1 / np.sqrt(2), 0], [0, 0, 0, 1]],
              dtype=complex))
 CR = make_immutable(
     np.array([[1, 1j, 0, 0], [1j, 1, 0, 0], [0, 0, 1, -1j], [0, 0, -1j, 1]],

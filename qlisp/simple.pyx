@@ -5,9 +5,10 @@ from typing import Callable
 
 import numpy as np
 
-from .matricies import (CR, CX, CZ, SWAP, A, B, H, M, S, Sdag, SQiSWAP, T,
-                        Tdag, U, Unitary, fSim, iSWAP, make_immutable,
-                        rfUnitary, sigmaI, sigmaX, sigmaY, sigmaZ)
+from .matricies import (CR, CX, CZ, SWAP, A, B, H, INViSWAP, INVSQiSWAP, M, S,
+                        Sdag, SQiSWAP, T, Tdag, U, Unitary, fSim, iSWAP,
+                        make_immutable, rfUnitary, sigmaI, sigmaX, sigmaY,
+                        sigmaZ)
 
 _clifford_groups = {}
 _matrix_of_gates: dict[str, tuple[Callable | np.ndarray, int, str]] = {}
@@ -336,6 +337,7 @@ regesterGateMatrix('CZ', CZ)
 regesterGateMatrix('Cnot', CX)
 regesterGateMatrix('CX', CX)
 regesterGateMatrix('iSWAP', iSWAP)
+regesterGateMatrix('-iSWAP', INViSWAP)
 regesterGateMatrix('SWAP', SWAP)
 regesterGateMatrix('CR', CR)
 
@@ -345,3 +347,4 @@ regesterGateMatrix('M', M)
 
 # non-clifford
 regesterGateMatrix('SQiSWAP', SQiSWAP)
+regesterGateMatrix('-SQiSWAP', INVSQiSWAP)
