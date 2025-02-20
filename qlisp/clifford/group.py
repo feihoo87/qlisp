@@ -1,9 +1,11 @@
 from functools import reduce
 from itertools import islice, product
+from typing import Sequence
 
 import numpy as np
 from cycles import CliffordGroup as _CliffordGroup
-from cycles import Cycles, find_permutation
+from cycles import (Cycles, OneQubitCliffordGateType, TwoQubitCliffordGateType,
+                    find_permutation)
 
 from ..matricies import sigmaI, sigmaX, sigmaY, sigmaZ
 from ..simple import seq2mat
@@ -36,9 +38,12 @@ class CliffordGroup(_CliffordGroup):
 
     def __init__(self,
                  N: int,
+                 one_qubit_gates: Sequence[OneQubitCliffordGateType] = ('H',
+                                                                        'S'),
+                 two_qubit_gate: TwoQubitCliffordGateType = 'CZ',
                  graph: tuple[int, int] | None = None,
                  generators: dict[tuple, Cycles] | None = None):
-        super().__init__(N, graph, generators)
+        super().__init__(N, one_qubit_gates, two_qubit_gate, graph, generators)
         for i in range(self.N):
             for g in one_qubit_clifford_seq:
                 self.circuit_to_permutation([(g, i)])
@@ -47,7 +52,7 @@ class CliffordGroup(_CliffordGroup):
         perm = self.matrix_to_permutation(mat)
         return [self.reversed_map[c] for c in perm.expand()]
 
-    def matrix_to_permutation(self, mat):
+    def matrix_to_permutation(self, mat) -> Cycles:
         assert mat.shape == (
             2**self.N, 2**self.N
         ), f"mat.shape = {mat.shape} != (2**{self.N}, 2**{self.N})"
@@ -55,25 +60,25 @@ class CliffordGroup(_CliffordGroup):
         perm = self.express(perm)
         return perm
 
-    def circuit_to_permutation(self, circuit):
+    def circuit_to_permutation(self, circuit) -> Cycles:
         perm = Cycles()
         for gate in circuit:
             if gate not in self.gate_map:
-                _, *qubits = gate
-                circ = [('I', i) for i in range(self.N) if i not in qubits]
-                circ.append(gate)
-                mat = seq2mat(circ)
-                self.gate_map[gate] = self.matrix_to_permutation(mat)
-                self.gate_map_inv[self.gate_map[gate]] = gate
+                try:
+                    self.gate_map[gate] = super().circuit_to_permutation(
+                        [gate])
+                except:
+                    _, *qubits = gate
+                    circ = [('I', i) for i in range(self.N) if i not in qubits]
+                    circ.append(gate)
+                    mat = seq2mat(circ)
+                    self.gate_map[gate] = self.matrix_to_permutation(mat)
+                    self.gate_map_inv[self.gate_map[gate]] = gate
             perm = perm * self.gate_map[gate]
         return self.express(perm)
 
-    def permutation_to_matrix(self, perm):
+    def permutation_to_matrix(self, perm: Cycles):
         return seq2mat(self.permutation_to_circuit(perm))
-
-    def circuit_inv(self, circuit):
-        perm = self.circuit_to_permutation(circuit).inv()
-        return self.permutation_to_circuit(perm)
 
     def circuit_simplify(self, circuit):
         ret = []
