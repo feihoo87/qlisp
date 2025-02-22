@@ -359,7 +359,7 @@ def two_qubit_clifford_circuit(n,
     else:
         n -= 10944
         i, j = np.unravel_index(n, (24, 24))
-        if 'SWAP' not in allowed_two_qubit_gates:
+        if 'SWAP' in allowed_two_qubit_gates:
             return [(one_qubit_clifford_seq[i], 0),
                     (one_qubit_clifford_seq[j], 1), ('SWAP', 0, 1)]
         elif 'iSWAP' in allowed_two_qubit_gates:
