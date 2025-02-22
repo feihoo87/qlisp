@@ -221,48 +221,147 @@ _one_qubit_clifford_index = {
 def one_qubit_clifford_index(gate):
     if gate in one_qubit_clifford_seq_inv:
         return one_qubit_clifford_seq_inv[gate]
-    else:
-        match gate:
-            case ('R', phi):
-                return one_qubit_clifford_index(
-                    ('U', pi / 2, phi - pi / 2, pi / 2 - phi))
-            case ('rfUnitary', theta, phi):
-                return one_qubit_clifford_index(
-                    ('U', theta, phi - pi / 2, pi / 2 - phi))
-            case ('u3', theta, phi, lam) | ('U', theta, phi, lam):
-                theta_i = round(4 * np.mod(theta / (2 * pi), 1), 12)
-                if np.mod(theta_i, 1) > 1e-9:
-                    return -1
-                theta_i = round(theta_i)
-                if theta_i == 1:
-                    pass
-                elif theta_i == 0:
-                    phi, lam = phi + lam, 0
-                elif theta_i == 2:
-                    phi, lam = phi - lam, 0
-                elif theta_i == 3:
-                    theta_i = 1
-                    phi, lam = phi + pi, lam + pi
-                else:
-                    return -1
-                phi_i = round(4 * np.mod(phi / (2 * pi), 1), 12)
-                lam_i = round(4 * np.mod(lam / (2 * pi), 1), 12)
-                if np.mod(phi_i, 1) < 1e-9 and np.mod(lam_i, 1) < 1e-9:
-                    return _one_qubit_clifford_index[theta_i,
-                                                     round(phi_i),
-                                                     round(lam_i)]
-                else:
-                    return -1
-            case ('u2', phi, lam):
-                return one_qubit_clifford_index(('U', pi / 2, phi, lam))
-            case ('u1', lam) | ('Rz', lam) | ('P', lam):
-                return one_qubit_clifford_index(('U', 0, 0, lam))
-            case ('Rx', theta):
-                return one_qubit_clifford_index(('U', theta, -pi / 2, pi / 2))
-            case ('Ry', theta):
-                return one_qubit_clifford_index(('U', theta, 0, 0))
-            case _:
+
+    match gate:
+        case ('R', phi):
+            return one_qubit_clifford_index(
+                ('U', pi / 2, phi - pi / 2, pi / 2 - phi))
+        case ('rfUnitary', theta, phi):
+            return one_qubit_clifford_index(
+                ('U', theta, phi - pi / 2, pi / 2 - phi))
+        case ('u3', theta, phi, lam) | ('U', theta, phi, lam):
+            theta_i = round(4 * np.mod(theta / (2 * pi), 1), 12)
+            if np.mod(theta_i, 1) > 1e-9:
                 return -1
+            theta_i = round(theta_i)
+            if theta_i == 1:
+                pass
+            elif theta_i == 0:
+                phi, lam = phi + lam, 0
+            elif theta_i == 2:
+                phi, lam = phi - lam, 0
+            elif theta_i == 3:
+                theta_i = 1
+                phi, lam = phi + pi, lam + pi
+            else:
+                return -1
+            phi_i = round(4 * np.mod(phi / (2 * pi), 1), 12)
+            lam_i = round(4 * np.mod(lam / (2 * pi), 1), 12)
+            if np.mod(phi_i, 1) < 1e-9 and np.mod(lam_i, 1) < 1e-9:
+                return _one_qubit_clifford_index[theta_i,
+                                                 round(phi_i),
+                                                 round(lam_i)]
+            else:
+                return -1
+        case ('u2', phi, lam):
+            return one_qubit_clifford_index(('U', pi / 2, phi, lam))
+        case ('u1', lam) | ('Rz', lam) | ('P', lam):
+            return one_qubit_clifford_index(('U', 0, 0, lam))
+        case ('Rx', theta):
+            return one_qubit_clifford_index(('U', theta, -pi / 2, pi / 2))
+        case ('Ry', theta):
+            return one_qubit_clifford_index(('U', theta, 0, 0))
+        case _:
+            return -1
+
+
+def _two_qubit_clifford_circuit(n,
+                                allowed_two_qubit_gates=('CZ', 'CX', 'Cnot',
+                                                         'iSWAP', 'SWAP')):
+    S1 = [0, 8, 7]  #  I, Rot(2/3 pi, (1,1,1)), Rot(2/3 pi, (1,-1,-1))
+    if n < 576:
+        i, j = np.unravel_index(n, (24, 24))
+        yield (i, 0)
+        yield (j, 1)
+    elif n < 5760:
+        n -= 576
+        i, j, k, l = np.unravel_index(n, (24, 24, 3, 3))
+        if 'CX' in allowed_two_qubit_gates or 'Cnot' in allowed_two_qubit_gates:
+            yield (i, 0)
+            yield (j, 1)
+            yield ('CX', 0, 1)
+            yield (S1[k], 0)
+            yield (S1[l], 1)
+        elif 'CZ' in allowed_two_qubit_gates:
+            yield (i, 0)
+            yield (one_qubit_clifford_mul_table[j, 19], 1)
+            yield ('CZ', 0, 1)
+            yield (S1[k], 0)
+            yield (one_qubit_clifford_mul_table[19, S1[l]], 1)
+        elif 'iSWAP' in allowed_two_qubit_gates:
+            yield (one_qubit_clifford_mul_table[i, 8], 0)
+            yield (one_qubit_clifford_mul_table[j, 4], 1)
+            yield ('iSWAP', 0, 1)
+            yield (4, 1)
+            yield ('iSWAP', 0, 1)
+            yield (one_qubit_clifford_mul_table[10, S1[k]], 0)
+            yield (one_qubit_clifford_mul_table[18, S1[l]], 1)
+        else:
+            raise ValueError('Imperfect two qubit gate set.')
+    elif n < 10944:
+        n -= 5760
+        i, j, k, l = np.unravel_index(n, (24, 24, 3, 3))
+        if 'iSWAP' in allowed_two_qubit_gates:
+            yield (i, 0)
+            yield (j, 1)
+            yield ('iSWAP', 0, 1)
+            yield (S1[k], 0)
+            yield (S1[l], 1)
+        elif 'CZ' in allowed_two_qubit_gates:
+            yield (one_qubit_clifford_mul_table[i, 8], 0)
+            yield (one_qubit_clifford_mul_table[j, 8], 1)
+            yield ('CZ', 0, 1)
+            yield (4, 0)
+            yield (4, 1)
+            yield ('CZ', 0, 1)
+            yield (one_qubit_clifford_mul_table[8, S1[k]], 0)
+            yield (one_qubit_clifford_mul_table[8, S1[l]], 1)
+        elif 'CX' in allowed_two_qubit_gates or 'Cnot' in allowed_two_qubit_gates:
+            yield (one_qubit_clifford_mul_table[i, 8], 0)
+            yield (one_qubit_clifford_mul_table[j, 4], 1)
+            yield ('CX', 0, 1)
+            yield (4, 0)
+            yield (4, 1)
+            yield ('CX', 0, 1)
+            yield (one_qubit_clifford_mul_table[8, S1[k]], 0)
+            yield (one_qubit_clifford_mul_table[0, S1[l]], 1)
+        else:
+            raise ValueError('Imperfect two qubit gate set.')
+    else:
+        n -= 10944
+        i, j = np.unravel_index(n, (24, 24))
+        if 'SWAP' in allowed_two_qubit_gates:
+            yield (i, 0)
+            yield (j, 1)
+            yield ('SWAP', 0, 1)
+        elif 'iSWAP' in allowed_two_qubit_gates:
+            yield (i, 0)
+            yield (j, 1)
+            yield ('iSWAP', 0, 1)
+            yield (4, 1)
+            yield ('iSWAP', 0, 1)
+            yield (8, 0)
+            yield ('iSWAP', 0, 1)
+            yield (14, 1)
+        elif 'CZ' in allowed_two_qubit_gates:
+            yield (i, 0)
+            yield (one_qubit_clifford_mul_table[j, 19], 1)
+            yield ('CZ', 0, 1)
+            yield (19, 1)
+            yield (19, 0)
+            yield ('CZ', 1, 0)
+            yield (19, 0)
+            yield (19, 1)
+            yield ('CZ', 0, 1)
+            yield (19, 1)
+        elif 'CX' in allowed_two_qubit_gates or 'Cnot' in allowed_two_qubit_gates:
+            yield (i, 0)
+            yield (j, 1)
+            yield ('CX', 0, 1)
+            yield ('CX', 1, 0)
+            yield ('CX', 0, 1)
+        else:
+            raise ValueError('Imperfect two qubit gate set.')
 
 
 def two_qubit_clifford_circuit(n,
@@ -271,128 +370,13 @@ def two_qubit_clifford_circuit(n,
     """
     生成第 n 个群元对应的操作序列
     """
-    S1 = [0, 8, 7]  #  I, Rot(2/3 pi, (1,1,1)), Rot(2/3 pi, (1,-1,-1))
-    if n < 576:
-        i, j = np.unravel_index(n, (24, 24))
-        return [(one_qubit_clifford_seq[i], 0), (one_qubit_clifford_seq[j], 1)]
-    elif n < 5760:
-        n -= 576
-        i, j, k, l = np.unravel_index(n, (24, 24, 3, 3))
-        if 'CX' in allowed_two_qubit_gates or 'Cnot' in allowed_two_qubit_gates:
-            return [(one_qubit_clifford_seq[i], 0),
-                    (one_qubit_clifford_seq[j], 1), ('CX', 0, 1),
-                    (one_qubit_clifford_seq[S1[k]], 0),
-                    (one_qubit_clifford_seq[S1[l]], 1)]
-        elif 'CZ' in allowed_two_qubit_gates:
-            return [
-                (one_qubit_clifford_seq[i], 0),
-                (one_qubit_clifford_seq[one_qubit_clifford_mul_table[j,
-                                                                     19]], 1),
-                ('CZ', 0, 1),
-                (one_qubit_clifford_seq[S1[k]], 0),
-                (one_qubit_clifford_seq[one_qubit_clifford_mul_table[19,
-                                                                     S1[l]]],
-                 1),
-            ]
-        elif 'iSWAP' in allowed_two_qubit_gates:
-            return [
-                (one_qubit_clifford_seq[one_qubit_clifford_mul_table[i,
-                                                                     8]], 0),
-                (one_qubit_clifford_seq[one_qubit_clifford_mul_table[j,
-                                                                     4]], 1),
-                ('iSWAP', 0, 1),
-                (one_qubit_clifford_seq[4], 1),
-                ('iSWAP', 0, 1),
-                (one_qubit_clifford_seq[one_qubit_clifford_mul_table[10,
-                                                                     S1[k]]],
-                 0),
-                (one_qubit_clifford_seq[one_qubit_clifford_mul_table[18,
-                                                                     S1[l]]],
-                 1),
-            ]
-        else:
-            raise ValueError('Imperfect two qubit gate set.')
-    elif n < 10944:
-        n -= 5760
-        i, j, k, l = np.unravel_index(n, (24, 24, 3, 3))
-        if 'iSWAP' in allowed_two_qubit_gates:
-            return [(one_qubit_clifford_seq[i], 0),
-                    (one_qubit_clifford_seq[j], 1), ('iSWAP', 0, 1),
-                    (one_qubit_clifford_seq[S1[k]], 0),
-                    (one_qubit_clifford_seq[S1[l]], 1)]
-        elif 'CZ' in allowed_two_qubit_gates:
-            return [
-                (one_qubit_clifford_seq[one_qubit_clifford_mul_table[i,
-                                                                     8]], 0),
-                (one_qubit_clifford_seq[one_qubit_clifford_mul_table[j,
-                                                                     8]], 1),
-                ('CZ', 0, 1),
-                (one_qubit_clifford_seq[4], 0),
-                (one_qubit_clifford_seq[4], 1),
-                ('CZ', 0, 1),
-                (one_qubit_clifford_seq[one_qubit_clifford_mul_table[8,
-                                                                     S1[k]]],
-                 0),
-                (one_qubit_clifford_seq[one_qubit_clifford_mul_table[8,
-                                                                     S1[l]]],
-                 1),
-            ]
-        elif 'CX' in allowed_two_qubit_gates or 'Cnot' in allowed_two_qubit_gates:
-            return [
-                (one_qubit_clifford_seq[one_qubit_clifford_mul_table[i,
-                                                                     8]], 0),
-                (one_qubit_clifford_seq[one_qubit_clifford_mul_table[j,
-                                                                     4]], 1),
-                ('CX', 0, 1),
-                (one_qubit_clifford_seq[4], 0),
-                (one_qubit_clifford_seq[4], 1),
-                ('CX', 0, 1),
-                (one_qubit_clifford_seq[one_qubit_clifford_mul_table[8,
-                                                                     S1[k]]],
-                 0),
-                (one_qubit_clifford_seq[one_qubit_clifford_mul_table[0,
-                                                                     S1[l]]],
-                 1),
-            ]
-        else:
-            raise ValueError('Imperfect two qubit gate set.')
-    else:
-        n -= 10944
-        i, j = np.unravel_index(n, (24, 24))
-        if 'SWAP' in allowed_two_qubit_gates:
-            return [(one_qubit_clifford_seq[i], 0),
-                    (one_qubit_clifford_seq[j], 1), ('SWAP', 0, 1)]
-        elif 'iSWAP' in allowed_two_qubit_gates:
-            return [
-                (one_qubit_clifford_seq[i], 0),
-                (one_qubit_clifford_seq[j], 1),
-                ('iSWAP', 0, 1),
-                (one_qubit_clifford_seq[4], 1),
-                ('iSWAP', 0, 1),
-                (one_qubit_clifford_seq[8], 0),
-                ('iSWAP', 0, 1),
-                (one_qubit_clifford_seq[14], 1),
-            ]
-        elif 'CZ' in allowed_two_qubit_gates:
-            return [
-                (one_qubit_clifford_seq[i], 0),
-                (one_qubit_clifford_seq[one_qubit_clifford_mul_table[j,
-                                                                     19]], 1),
-                ('CZ', 0, 1),
-                (one_qubit_clifford_seq[19], 1),
-                (one_qubit_clifford_seq[19], 0),
-                ('CZ', 1, 0),
-                (one_qubit_clifford_seq[19], 0),
-                (one_qubit_clifford_seq[19], 1),
-                ('CZ', 0, 1),
-                (one_qubit_clifford_seq[19], 1),
-            ]
-        elif 'CX' in allowed_two_qubit_gates or 'Cnot' in allowed_two_qubit_gates:
-            return [(one_qubit_clifford_seq[i], 0),
-                    (one_qubit_clifford_seq[j], 1), ('CX', 0, 1), ('CX', 1, 0),
-                    ('CX', 0, 1)]
-        else:
-            raise ValueError('Imperfect two qubit gate set.')
+    circ = []
+    for gate, *qubits in _two_qubit_clifford_circuit(n,
+                                                     allowed_two_qubit_gates):
+        if not isinstance(gate, str):
+            gate = one_qubit_clifford_seq[gate]
+        circ.append((gate, *qubits))
+    return circ
 
 
 if __name__ == "__main__":
