@@ -9,8 +9,8 @@ from cycles import (Cycles, OneQubitCliffordGateType, TwoQubitCliffordGateType,
 
 from ..matricies import sigmaI, sigmaX, sigmaY, sigmaZ
 from ..simple import seq2mat
-from .utils import (one_qubit_clifford_mul_table, one_qubit_clifford_seq,
-                    one_qubit_clifford_seq_inv)
+from .utils import (one_qubit_clifford_index, one_qubit_clifford_mul_table,
+                    one_qubit_clifford_seq)
 
 
 def find_permutation_for_Unitary(U: np.ndarray,
@@ -91,9 +91,9 @@ class CliffordGroup(_CliffordGroup):
                 ret.append((gate, *qubits))
             else:
                 qubit, = qubits
-                i = one_qubit_clifford_seq_inv[stack.get(
-                    qubit, one_qubit_clifford_seq[0])]
-                j = one_qubit_clifford_seq_inv[gate]
+                i = one_qubit_clifford_index(
+                    stack.get(qubit, one_qubit_clifford_seq[0]))
+                j = one_qubit_clifford_index(gate)
                 stack[qubit] = one_qubit_clifford_seq[
                     one_qubit_clifford_mul_table[i, j]]
         for qubit, gate in stack.items():
