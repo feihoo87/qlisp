@@ -183,11 +183,33 @@ def circuit_two_qubit_rb(pairs,
     return circs
 
 
-def circuit_rb(qubit_groups,
+def circuit_rb(qubit_groups: list[list[str | int]],
                cycles: int,
                interleaved: list | None = None,
                two_qubit_gate='CZ',
                seeds=None):
+    """
+    Generate random RB circuits.
+
+    Args:
+        qubit_groups: [[qubits], ...]
+            List of qubit groups. each group is a list of qubits.
+            If the group has only one or two qubit, it will generate one or two qubit RB.
+            If the group has more than two qubits, it will generate n qubit RB, but the circuit may not be optimal.
+            the length of the group could be different. but longer than the number of qubits used in the interleaved.
+        cycles (int): The cycles of sequence.
+            the number of random clifford gates in the sequence.
+        interleaved (list): The interleaved to use.
+            the interleaved could be a list of gates, each gate is a tuple of gate and qubits.
+            the qubits could be a tuple of qubits, or a single qubit.
+        two_qubit_gate (str): The two qubit gate to use.
+            the two qubit gate could be 'CZ', 'CX' or 'iSWAP'.
+        seeds (int | list[int]): The seed for the random number generator.
+            seeds could be a list of seeds, or a single seed for all qubit groups.
+
+    Returns:
+        list of generated circuits for each qubit group.
+    """
     if interleaved is None:
         interleaved = []
     interleaved_qubits = set()
