@@ -3,15 +3,6 @@
 #include <stdint.h>
 #include <stdlib.h>
 
-
-#define get_xz(n, x, z) { \
-for (uint64_t i = 0; i < 32; i++) \
-    { \
-        x |= (((n) >> 2 * i) & 1) << i; \
-        z |= (((n) >> 2 * i + 1) & 1) << i; \
-    } \
-}
-
 // 检查是否是 x86 平台并且支持 POPCNT 指令
 #if defined(__x86_64__) || defined(_M_X64) || defined(__i386) || defined(_M_IX86)
 #if defined(__POPCNT__) || (defined(_MSC_VER) && defined(__AVX__))
@@ -21,6 +12,9 @@ for (uint64_t i = 0; i < 32; i++) \
 #define HAS_ARM
 #endif
 
+/*
+ * 计算一个无符号整数 n 的二进制表示中 1 的个数
+ */
 static inline unsigned int bit_count(unsigned int n)
 {
     unsigned int count = 0;
@@ -52,9 +46,27 @@ static inline unsigned int bit_count(unsigned int n)
     return count;
 }
 
-const uint64_t X_mask = 0x5555555555555555ULL;
-const uint64_t Z_mask = 0xAAAAAAAAAAAAAAAAULL;
+// 将一个 64 位整数 n 按奇数位和偶数位拆分为两个 32 位整数 x 和 z
+#define split_index_uint64(n, x, z)             \
+    {                                           \
+        x = 0;                                  \
+        z = 0;                                  \
+        for (uint64_t i = 0; i < 32; i++)       \
+        {                                       \
+            x |= (((n) >> 2 * i) & 1) << i;     \
+            z |= (((n) >> 2 * i + 1) & 1) << i; \
+        }                                       \
+    }
 
+#define X_mask 0x5555555555555555ULL
+#define Z_mask 0xAAAAAAAAAAAAAAAAULL
+
+/*
+ * 将一个复数原位逆时针旋转 phase 角度
+ * phase = 0, 1, 2, 3 分别代表 0°, 90°, 180°, 270°
+ * phase = 4 代表结果清零
+ * real 和 imag 是输入和输出的实部和虚部
+ */
 static inline void complex_rot(double *real, double *imag, uint64_t phase)
 {
     double tmp = *real;
@@ -81,20 +93,57 @@ static inline void complex_rot(double *real, double *imag, uint64_t phase)
     }
 }
 
-static inline uint64_t int_pauli_mul(uint64_t a, uint64_t b, uint64_t *ret)
+/*
+ * 计算两个 Pauli 矩阵的乘积
+ * a 和 b 是两个 Pauli 矩阵的序号，res 是输出的 Pauli 矩阵的序号
+ * 返回值是结果的附加系数。即：
+ * Paulis[a] * Paulis[b] = sign(ret) * Paulis[res]
+ *
+ * 如果基底按照 IXYZ 的顺序排列
+ * 即算符按 I...II, I...IX, I...IY, I...IZ, I...XI, I...XX, I...XY, I...XZ, ... 的顺序排列
+ * 则返回值 0, 1, 2, 3 分别代表 1, -i, -1, i
+ *
+ * 如果基底按照 IZXY 的顺序排列
+ * 即算符按 I...II, I...IX, I...IZ, I...IY, I...XI, I...XX, I...XZ, I...XY, ... 的顺序排列
+ * 则返回值 0, 1, 2, 3 分别代表 1, i, -1, -i
+ */
+static inline uint64_t int_pauli_mul(uint64_t a, uint64_t b, uint64_t *res)
 {
     uint64_t c = a ^ b;
     uint64_t az = a >> 1, bz = b >> 1, cz = c >> 1;
 
     uint64_t l = (a | az) & (b | bz) & (c | cz) & X_mask;
     uint64_t h = ((az & b) ^ (c & cz)) & l;
-    *ret = c;
+    *res = c;
 
     // if Pauli matirx is sorted as I, X, Y, Z
     // the sign is 1, -i, -1, i
     // if Pauli matirx is sorted as I, X, Z, Y
     // the sign is 1, i, -1, -i
     return ((bit_count(h) << 1) ^ bit_count(l)) & 3;
+}
+
+/*
+ * 计算两个 Pauli 矩阵的乘积
+ * 与 int_pauli_mul 的区别是，参数和返回值用最低两位表示 Pauli 矩阵的附加系数
+ */
+static inline uint64_t int_pauli_mul_with_sign(uint64_t a, uint64_t b)
+{
+    uint64_t sign = a + b;
+    a >>= 2;
+    b >>= 2;
+    uint64_t c = a ^ b;
+    uint64_t az = a >> 1, bz = b >> 1, cz = c >> 1;
+
+    uint64_t l = (a | az) & (b | bz) & (c | cz) & X_mask;
+    uint64_t h = ((az & b) ^ (c & cz)) & l;
+
+    // if Pauli matirx is sorted as I, X, Y, Z
+    // the sign is 1, -i, -1, i
+    // if Pauli matirx is sorted as I, X, Z, Y
+    // the sign is 1, i, -1, -i
+    sign += (bit_count(h) << 1) ^ bit_count(l);
+    return (sign & 3) | (c << 2);
 }
 
 void pauli_imul(uint64_t *left, uint64_t *right, size_t N)
@@ -122,12 +171,19 @@ void pauli_imul(uint64_t *left, uint64_t *right, size_t N)
     *first |= sign & 3;
 }
 
+/*
+ * 计算第 n 个 Pauli 矩阵的第 r 行，第 c 列的元素
+ * 基底按照 IXZY 的顺序排列，即算符按
+ * I...II, I...IX, I...IZ, I...IY, I...XI, I...XX, I...XZ, I...XY, ...
+ * 的顺序排列
+ * 返回值 0, 1, 2, 3 分别代表 1, i, -1, -i， 4 代表 0
+ */
 uint64_t pauli_xzy_tensor_element_int(uint64_t n, uint64_t r, uint64_t c)
 {
     uint64_t x = 0;
     uint64_t z = 0;
 
-    get_xz(n, x, z);
+    split_index_uint64(n, x, z);
 
     if (x ^ r != c)
         return 4;
@@ -136,12 +192,19 @@ uint64_t pauli_xzy_tensor_element_int(uint64_t n, uint64_t r, uint64_t c)
     return (bit_count(x & z) + (bit_count(z & c) << 1)) & 3;
 }
 
+/*
+ * 计算第 n 个 Pauli 矩阵的第 r 行，第 c 列的元素
+ * 基底按照 IXYZ 的顺序排列，即算符按
+ * I...II, I...IX, I...IY, I...IZ, I...XI, I...XX, I...XY, I...XZ, ...
+ * 的顺序排列
+ * 返回值 0, 1, 2, 3 分别代表 1, i, -1, -i， 4 代表 0
+ */
 uint64_t pauli_xyz_tensor_element_int(uint64_t n, uint64_t r, uint64_t c)
 {
     uint64_t x = 0;
     uint64_t z = 0;
 
-    get_xz(n, x, z);
+    split_index_uint64(n, x, z);
     x = x ^ z;
 
     if (x ^ r != c)
