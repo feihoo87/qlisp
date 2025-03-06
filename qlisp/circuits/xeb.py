@@ -5,51 +5,32 @@ from typing import Callable, Iterable, Optional, Union
 import numpy as np
 from numpy import pi
 
+from ..simple import applySeq
 from .utils import mapping_qubits
 
 
-def uncorrelatedEntropy(D: int) -> float:
+def uncorrelated_entropy(D: int) -> float:
+    """Uncorrelated entropy
+
+    The uncorrelated entropy is the entropy of the uniform distribution
+    over all possible bit strings of a quantum system with Hilbert space
+    dimension D.
+    """
     from scipy.special import polygamma
 
     return np.euler_gamma + polygamma(0, D)
 
 
-def PTEntropy(N: int) -> float:
-    D = 2**N
+def PT_entropy(D: int) -> float:
+    """Porter-Thomas entropy
+
+    The Porter-Thomas entropy is the entropy of the uniform distribution
+    over the Hilbert space of dimension D.
+    """
     return np.sum([1 / i for i in range(1, D + 1)]) - 1
 
 
-def crossEntropy(P: np.array,
-                 Q: np.array,
-                 func: Callable = np.log,
-                 eps: float = 1e-9) -> float:
-    mask = (P > 0) * (Q > eps)
-    if isinstance(P, (int, float, complex)):
-        return -np.real(P) * np.sum(func(Q[mask]))
-    else:
-        return -np.sum(P[mask] * func(Q[mask]))
-
-
-def Fxeb(Pm_lst: Iterable[np.array],
-         Pe_lst: Iterable[np.array],
-         Pi: Optional[np.array] = None) -> float:
-    """
-    XEB Fidelity
-
-    Pm_lst: list of measured distribution
-    Pe_lst: list of expected distribution
-    """
-    Si, Sm, Se = [], [], []
-    for Pm, Pe in zip(Pm_lst, Pe_lst):
-        if Pi is None:
-            Pi = 1.0 / Pm.size
-        Si.append(crossEntropy(Pi, Pe))
-        Sm.append(crossEntropy(Pm, Pe))
-        Se.append(crossEntropy(Pe, Pe))
-    return (np.mean(Si) - np.mean(Sm)) / (np.mean(Si) - np.mean(Se))
-
-
-def Fxeb_linear(measured: Iterable[np.array], ideal: Iterable[np.array]):
+def xeb_fidelity(measured: Iterable[np.array], ideal: Iterable[np.array]):
     """XEB Fidelity
 
     Linear cross entropy between two probability distributions p and q is
@@ -80,6 +61,17 @@ def Fxeb_linear(measured: Iterable[np.array], ideal: Iterable[np.array]):
 
     Ref:
         https://doi.org/10.1038/s41586-019-1666-5
+
+    Args:
+        measured: measured distribution
+            the last dimension is the Hilbert space dimension
+            and the second last dimension is the random circuits
+        ideal: ideal distribution
+            the last dimension is the Hilbert space dimension
+            and the second last dimension is the random circuits
+
+    Returns:
+        fidelity
     """
     measured = np.asarray(measured)
     ideal = np.asarray(ideal)
@@ -90,7 +82,7 @@ def Fxeb_linear(measured: Iterable[np.array], ideal: Iterable[np.array]):
     return F
 
 
-def specklePurity(Pm_lst: Iterable[np.array], D: int = None) -> float:
+def speckle_purity(measured: Iterable[np.array]) -> float:
     """Speckle Purity
 
     Speckle Purity Benchmarking (SPB) is the method of measuring the state purity
@@ -114,59 +106,53 @@ def specklePurity(Pm_lst: Iterable[np.array], D: int = None) -> float:
         https://doi.org/10.1038/s41586-019-1666-5
 
     Args:
-        Pm_lst: list of measured distribution
-        D (int): Hilbert space dimension
+        measured: measured distribution
+            the last dimension is the Hilbert space dimension
+            and the second last dimension is the random circuits
 
     Returns:
-        Speckle Purity: float
+        Speckle Purity
     """
-    if D is None:
-        D = Pm_lst[0].size
-    return np.asarray(Pm_lst).var() * D**2 * (D + 1) / (D - 1)
+    measured = np.asarray(measured)
+    D = measured.shape[-1]
+    return np.var(measured, axis=(-1, -2)) * D**2 * (D + 1) / (D - 1)
 
 
-def generateXEBCircuit(qubits: Union[int, str, tuple],
-                       cycle: int,
-                       seed: Optional[int] = None,
-                       interleaves: list[list[tuple]] = [],
-                       base: list[Union[str, tuple]] = [
-                           ('rfUnitary', pi / 2, 0),
-                           ('rfUnitary', pi / 2, pi / 4),
-                           ('rfUnitary', pi / 2, pi / 2),
-                           ('rfUnitary', pi / 2, pi * 3 / 4),
-                           ('rfUnitary', pi / 2, pi),
-                           ('rfUnitary', pi / 2, pi * 5 / 4),
-                           ('rfUnitary', pi / 2, pi * 3 / 2),
-                           ('rfUnitary', pi / 2, pi * 7 / 2)
-                       ]):
+def xeb_circuit(qubits: Union[int, str, tuple],
+                cycle: int,
+                seed: Optional[int] = None,
+                entangler: list = [],
+                optional_single_qutib_gates: list[Union[str, tuple]] = [
+                    ('R', i * pi / 4) for i in range(8)
+                ],
+                ideal_distribution: bool = False):
     """Generate a random XEB circuit.
+
+    Generate a random XEB circuit with the given qubits, cycles, seed. The
+    circuit is generated by randomly interleaving single qubit gates between
+    the entangler gates.
 
     Args:
         qubits (list): The qubits to use.
         cycle (int): The cycles of sequence.
         seed (int): The seed for the random number generator.
-        interleaves (list): The interleaves to use.
-
-    Returns:
-        list: The XEB circuit.
+        entangler (list): The entangler to use.
+        optional_single_qutib_gates (list): The optional single qubit gates.
+        ideal_distribution (bool): Whether to return the ideal distribution.
     """
     if isinstance(qubits, (str, int)):
         qubits = {0: qubits}
     else:
         qubits = {i: q for i, q in enumerate(qubits)}
 
-    interleaves = itertools.cycle(interleaves)
-
     ret = []
     rng = random.Random(seed)
 
     for _ in range(cycle):
-        try:
-            int_seq = next(interleaves)
-        except StopIteration:
-            int_seq = []
-        ret.extend(mapping_qubits(int_seq, qubits))
-        for q in qubits:
-            ret.append((rng.choice(base), q))
+        ret.extend(entangler)
+        for i, q in enumerate(qubits):
+            ret.append((rng.choice(optional_single_qutib_gates), i))
 
-    return ret
+    if ideal_distribution:
+        return mapping_qubits(ret, qubits), np.abs(applySeq(ret))**2
+    return mapping_qubits(ret, qubits)
