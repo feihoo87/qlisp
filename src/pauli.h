@@ -114,7 +114,7 @@ static inline void pauli_tensor_nozero_element(uint64_t x, uint64_t z, uint64_t 
 {
     *c = x ^ r;
     // 0: 1, 1: i, 2: -1, 3: -i, 4 : 0
-    *sign = bit_count(x & z) + (bit_count(z & *c) << 1);
+    *sign += bit_count(x & z) + (bit_count(z & *c) << 1);
 }
 
 /*
@@ -126,7 +126,7 @@ static inline void pauli_tensor_nozero_element(uint64_t x, uint64_t z, uint64_t 
  */
 static inline uint64_t pauli_xzy_tensor_element_int(uint64_t n, uint64_t r, uint64_t c)
 {
-    uint64_t c1, sign;
+    uint64_t c1, sign = 0;
     uint64_t x = 0;
     uint64_t z = 0;
 
@@ -150,7 +150,7 @@ static inline uint64_t pauli_xzy_tensor_element_int(uint64_t n, uint64_t r, uint
  */
 static inline uint64_t pauli_xyz_tensor_element_int(uint64_t n, uint64_t r, uint64_t c)
 {
-    uint64_t c1, sign;
+    uint64_t c1, sign = 0;
     uint64_t x = 0;
     uint64_t z = 0;
 
