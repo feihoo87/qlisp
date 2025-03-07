@@ -86,7 +86,7 @@ void pauli_imul(uint64_t *left, uint64_t *right, size_t N)
     *first |= sign & 3;
 }
 
-uint64_t _pauli_xzy_tensor_element_int(uint64_t n, uint64_t r, uint64_t c)
+uint64_t pauli_xzy_tensor_element_int(uint64_t n, uint64_t r, uint64_t c)
 {
     uint64_t x = 0;
     uint64_t z = 0;
@@ -104,7 +104,7 @@ uint64_t _pauli_xzy_tensor_element_int(uint64_t n, uint64_t r, uint64_t c)
     return (bit_count(x & z) + (bit_count(z & c) << 1)) & 3;
 }
 
-uint64_t _pauli_xyz_tensor_element_int(uint64_t n, uint64_t r, uint64_t c)
+uint64_t pauli_xyz_tensor_element_int(uint64_t n, uint64_t r, uint64_t c)
 {
     uint64_t x = 0;
     uint64_t z = 0;
@@ -348,7 +348,7 @@ double _qst_mat_element(
         {
             re2 = re3;
             im2 = im3;
-            uint8_t pauli = _pauli_tensor_element_int(op_list_len, j, k, l);
+            uint8_t pauli = _pauli_xzy_tensor_element_int(op_list_len, j, k, l);
             // printf("P[%d,%d%d] ==> re: %f, im: %f\n", j, k, l, re, im);
             if (pauli == 4)
             {
@@ -380,7 +380,7 @@ double _qpt_mat_element(Operators *gate_set,
 
         for (size_t s = 0; s < dim; s++)
         {
-            uint8_t P1 = _pauli_tensor_element_int(N, m, s, j);
+            uint8_t P1 = _pauli_xzy_tensor_element_int(N, m, s, j);
             if (P1 == 4)
             {
                 continue;
@@ -407,7 +407,7 @@ double _qpt_mat_element(Operators *gate_set,
                 double Wi = imag;
                 for (size_t q = 0; q < dim; q++)
                 {
-                    uint8_t P2 = _pauli_tensor_element_int(N, n, q, k);
+                    uint8_t P2 = _pauli_xzy_tensor_element_int(N, n, q, k);
                     if (P2 == 4)
                     {
                         continue;
@@ -575,7 +575,7 @@ static PyObject *pauli_element(PyObject *self, PyObject *args)
 
     double real = 1.0, imag = 0.0;
 
-    uint8_t result = _pauli_tensor_element_int(op_list_len, N, r, c);
+    uint8_t result = _pauli_xzy_tensor_element_int(op_list_len, N, r, c);
     complex128_mul_pauli_elm(&real, &imag, result);
 
     return PyComplex_FromDoubles(real, imag);

@@ -21,6 +21,9 @@ def get_extensions():
     extensions = [
         Extension("qlisp._tensor",
                   sources=["src/tensor.c"],
+                  include_dirs=["src", np.get_include()]),
+        Extension("qlisp._pauli",
+                  sources=["src/pauli.c"],
                   include_dirs=["src", np.get_include()])
     ]
 
