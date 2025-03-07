@@ -106,6 +106,18 @@ static inline uint64_t int_pauli_mul_with_sign(uint64_t a, uint64_t b)
 }
 
 /*
+ * 计算由 x，z 标识的 Pauli 矩阵的第 r 行的非零元素
+ * c 是非零元素的列，sign 是输出的非零元素的值
+ * sign % 4 的值 0, 1, 2, 3 分别代表 1, i, -1, -i
+ */
+static inline void pauli_tensor_nozero_element(uint64_t x, uint64_t z, uint64_t r, uint64_t *c, uint64_t *sign)
+{
+    *c = x ^ r;
+    // 0: 1, 1: i, 2: -1, 3: -i, 4 : 0
+    *sign = bit_count(x & z) + (bit_count(z & *c) << 1);
+}
+
+/*
  * 计算第 n 个 Pauli 矩阵的第 r 行，第 c 列的元素
  * 基底按照 IXZY 的顺序排列，即算符按
  * I...II, I...IX, I...IZ, I...IY, I...XI, I...XX, I...XZ, I...XY, ...
@@ -114,16 +126,19 @@ static inline uint64_t int_pauli_mul_with_sign(uint64_t a, uint64_t b)
  */
 static inline uint64_t pauli_xzy_tensor_element_int(uint64_t n, uint64_t r, uint64_t c)
 {
+    uint64_t c1, sign;
     uint64_t x = 0;
     uint64_t z = 0;
 
     split_index_uint64(n, x, z);
 
-    if ((x ^ r) != c)
+    pauli_tensor_nozero_element(x, z, r, &c1, &sign);
+
+    if (c1 != c)
         return 4;
 
     // 0: 1, 1: i, 2: -1, 3: -i, 4 : 0
-    return (bit_count(x & z) + (bit_count(z & c) << 1)) & 3;
+    return sign & 3;
 }
 
 /*
@@ -135,24 +150,20 @@ static inline uint64_t pauli_xzy_tensor_element_int(uint64_t n, uint64_t r, uint
  */
 static inline uint64_t pauli_xyz_tensor_element_int(uint64_t n, uint64_t r, uint64_t c)
 {
+    uint64_t c1, sign;
     uint64_t x = 0;
     uint64_t z = 0;
 
     split_index_uint64(n, x, z);
     x = x ^ z;
 
-    if ((x ^ r) != c)
+    pauli_tensor_nozero_element(x, z, r, &c1, &sign);
+
+    if (c1 != c)
         return 4;
 
     // 0: 1, 1: i, 2: -1, 3: -i, 4 : 0
-    return (bit_count(x & z) + (bit_count(z & c) << 1)) & 3;
-}
-
-static inline void pauli_tensor_nozero_element_iter(uint64_t x, uint64_t z, uint64_t r, uint64_t *c, uint64_t *sign)
-{
-    *c = x ^ r;
-    // 0: 1, 1: i, 2: -1, 3: -i, 4 : 0
-    *sign = (bit_count(x & z) + (bit_count(z & *c) << 1)) & 3;
+    return sign & 3;
 }
 
 #endif // __PAULI_H__
