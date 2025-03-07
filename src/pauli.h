@@ -6,16 +6,35 @@
 #include "bit_count.h"
 
 // 将一个 64 位整数 n 按奇数位和偶数位拆分为两个 32 位整数 x 和 z
-#define split_index_uint64(n, x, z)               \
-    {                                             \
-        x = 0;                                    \
-        z = 0;                                    \
-        for (uint64_t i = 0; i < 32; i++)         \
-        {                                         \
-            x |= (((n) >> (2 * i)) & 1) << i;     \
-            z |= (((n) >> (2 * i + 1)) & 1) << i; \
-        }                                         \
+#define split_index_uint64(n, x, z)                 \
+    {                                               \
+        (x) = 0;                                    \
+        (z) = 0;                                    \
+        for (uint64_t i = 0; i < 32; i++)           \
+        {                                           \
+            (x) |= (((n) >> (2 * i)) & 1) << i;     \
+            (z) |= (((n) >> (2 * i + 1)) & 1) << i; \
+        }                                           \
     }
+
+/*
+ * 将一个长度为 N 的 64 位整数数组所表示的大整数 n 按奇数位和偶数位拆分为
+ * 两个长度为 N/2 的 64 位整数数组 x 和 z
+ * 整数按照 little-endian 排列
+ * N 必须是偶数
+ */
+static inline void split_index(uint64_t N, uint64_t *n, uint64_t *x, uint64_t *z)
+{
+    uint64_t x1, z1, x2, z2;
+
+    for (uint64_t i = 0; i < N; i += 2)
+    {
+        split_index_uint64(*n++, x1, z1);
+        split_index_uint64(*n++, x2, z2);
+        *x++ = x1 | (x2 << 32);
+        *z++ = z1 | (z2 << 32);
+    }
+}
 
 static const uint64_t X_mask = 0x5555555555555555ULL;
 static const uint64_t Z_mask = 0xAAAAAAAAAAAAAAAAULL;
