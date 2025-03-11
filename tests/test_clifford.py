@@ -7,9 +7,12 @@ import numpy as np
 
 from qlisp import applySeq, seq2mat, synchronize_global_phase
 from qlisp.clifford import (CliffordGroup, find_permutation_for_Unitary,
-                            one_qubit_clifford_matricies,
                             one_qubit_clifford_mul_table,
                             one_qubit_clifford_seq, one_qubit_clifford_seq2)
+
+one_qubit_clifford_matricies = [
+    seq2mat([(g, 0) for g in seq]) for seq in one_qubit_clifford_seq
+]
 
 
 def make_circuit(gate, N):
