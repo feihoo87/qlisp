@@ -11,7 +11,7 @@ from qlisp.clifford import (CliffordGroup, find_permutation_for_Unitary,
                             one_qubit_clifford_seq, one_qubit_clifford_seq2)
 
 one_qubit_clifford_matricies = [
-    seq2mat([(g, 0) for g in seq]) for seq in one_qubit_clifford_seq
+    seq2mat([(gate, 0)]) for gate in one_qubit_clifford_seq
 ]
 
 
