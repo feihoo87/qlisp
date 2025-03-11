@@ -7,9 +7,8 @@ from scipy import linalg, optimize
 from scipy.linalg import lstsq
 from scipy.sparse import coo_matrix, csc_matrix
 from scipy.sparse.linalg import inv, lsqr
-from waveforms.cache import cache
 
-from .._tensor import QSTMatrixGenerator
+from ..cache import cache
 from ..math import (bloch2rho, dagger, normalize, randomUnitary, rho2bloch,
                     unitary2v, v2unitary)
 from ..matricies import (sigmaI, sigmaM, sigmaP, sigmaX, sigmaY, sigmaZ,
@@ -158,7 +157,7 @@ def formUMatrix(n, gates):
     return A, b
 
 
-def qst_(diags, gates=qst_gates):
+def qst(diags, gates=qst_gates):
     """Convert a set of diagonal measurements into a density matrix.
     
     diags - measured probabilities (diagonal elements) after acting
@@ -178,45 +177,6 @@ def qst_(diags, gates=qst_gates):
     P = np.asarray(diags)[:, 1:]
     v, *_ = lsqr(A, P.flatten() - b)
     return vToRho(v)
-
-
-def qst(diags, gate_set=qst_gates):
-    """Convert a set of diagonal measurements into a density matrix.
-    
-    diags - measured probabilities (diagonal elements) after acting
-            on the state with each of the unitaries from the qst
-            protocol.
-    gate_set - qst protocol
-            yield unitaries from product(gates, repeat=N).
-            gates should be choosed from {I, X, Y, Z, H, S, -S,
-            X/2, Y/2, -X/2, -Y/2}.
-    """
-    from qlisp import seq2mat
-
-    diags = np.asarray(diags)
-    N = len(diags[0])  # size of density matrix
-    n = int(np.log2(N))  # number of qubits
-
-    gate_set_mat = np.array([seq2mat([(gate, 0)]) for gate in gate_set])
-    gate_set_dims = np.array([[2, 2]] * len(gate_set))
-
-    shape = (len(gate_set)**n * (2**n - 1), 4**n - 1)
-    if shape[0] * shape[1] < 1024 * 1024:
-        M = np.zeros(shape)
-        for i, j, v in QSTMatrixGenerator(gate_set_mat, gate_set_dims, n):
-            M[i, j] = v
-
-        v, *_ = lstsq(M, diags[:, 1:].flatten() - 1 / N)
-    else:
-        A_data, A_i, A_j = [], [], []
-        for i, j, v in QSTMatrixGenerator(gate_set_mat, gate_set_dims, n):
-            A_data.append(v)
-            A_i.append(i)
-            A_j.append(j)
-        M = coo_matrix((A_data, (A_i, A_j)))
-        v, *_ = lsqr(M, diags[:, 1:].flatten() - 1 / N)
-
-    return bloch2rho(v)
 
 
 @cache()
