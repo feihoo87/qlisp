@@ -1,6 +1,5 @@
-import itertools
 import random
-from typing import Callable, Iterable, Optional, Union
+from typing import Iterable, Optional, Union
 
 import numpy as np
 from numpy import pi
@@ -82,7 +81,8 @@ def xeb_fidelity(measured: Iterable[np.array], ideal: Iterable[np.array]):
     return F
 
 
-def speckle_purity(measured: Iterable[np.array]) -> float:
+def speckle_purity(measured: Iterable[np.array],
+                   ideal: Iterable[np.array] | None = None) -> float:
     """Speckle Purity
 
     Speckle Purity Benchmarking (SPB) is the method of measuring the state purity
@@ -109,13 +109,20 @@ def speckle_purity(measured: Iterable[np.array]) -> float:
         measured: measured distribution
             the last dimension is the Hilbert space dimension
             and the second last dimension is the random circuits
+        ideal: ideal distribution
+            the last dimension is the Hilbert space dimension
+            and the second last dimension is the random circuits
 
     Returns:
         Speckle Purity
     """
     measured = np.asarray(measured)
-    D = measured.shape[-1]
-    return np.var(measured, axis=(-1, -2)) * D**2 * (D + 1) / (D - 1)
+    if ideal is None:
+        D = measured.shape[-1]
+        return np.var(measured, axis=(-1, -2)) * D**2 * (D + 1) / (D - 1)
+    else:
+        ideal = np.asarray(ideal)
+        return np.var(measured, axis=(-1, -2)) / np.var(ideal, axis=(-1, -2))
 
 
 def xeb_circuit(qubits: Union[int, str, tuple],
