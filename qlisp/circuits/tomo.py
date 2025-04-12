@@ -411,6 +411,30 @@ def chi_to_U(chi, basis=pauli_basis, U0=None):
     return synchronize_global_phase(v2unitary(v))
 
 
+def fidelity(U, Kraus):
+    """Calculates the fidelity of a quantum operation.
+
+    Parameters
+    ----------
+    U : np.ndarray
+        The ideal unitary operation.
+    Kraus : list[np.ndarray]
+        The Kraus operators of the measured operation.
+    
+    Returns
+    -------
+    float
+        The fidelity of the quantum operation.
+
+    Reference
+    ---------
+    https://arxiv.org/pdf/1912.04368
+    """
+    d = U.shape[0]
+    f = np.sum([np.abs(np.trace(U @ K.T.conj()))**2 for K in Kraus]) / d
+    return (f + 1) / (d + 1)
+
+
 __all__ = [
     "qst", "qst_mle", "qpt", "qstOpList", "qptInitList", "U_to_chi", "chi_to_U"
 ]
