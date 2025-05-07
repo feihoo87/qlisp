@@ -226,7 +226,7 @@ def one_qubit_clifford_index(gate):
         case ('R', phi):
             return one_qubit_clifford_index(
                 ('U', pi / 2, phi - pi / 2, pi / 2 - phi))
-        case ('rfUnitary', theta, phi):
+        case ('rfUnitary', theta, phi) | ('rf', theta, phi):
             return one_qubit_clifford_index(
                 ('U', theta, phi - pi / 2, pi / 2 - phi))
         case ('u3', theta, phi, lam) | ('U', theta, phi, lam):
