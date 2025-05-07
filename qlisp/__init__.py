@@ -1,4 +1,5 @@
 from ._draw import draw
+from .linalg import kak_decomposition, kak_vector
 from .matricies import (CR, CX, CZ, SWAP, BellPhiM, BellPhiP, BellPsiM,
                         BellPsiP, H, S, Sdag, SQiSWAP, T, Tdag, U,
                         Unitary2Angles, fSim, iSWAP, make_immutable, phiminus,
