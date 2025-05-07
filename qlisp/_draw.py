@@ -22,7 +22,7 @@ def to_new(qlisp):
 
 
 def draw(qlisp):
-    from qiskit import QuantumCircuit
+    from qiskit import ClassicalRegister, QuantumCircuit, QuantumRegister
     qlisp = to_new(qlisp)
 
     all_qubits = set()
@@ -48,7 +48,8 @@ def draw(qlisp):
     qubit_map = {q: i for i, q in enumerate(all_qubits)}
     cbit_map = {c: i for i, c in enumerate(all_cbits)}
 
-    circuit = QuantumCircuit(len(all_qubits), len(all_cbits))
+    circuit = QuantumCircuit(*[QuantumRegister(1, q) for q in all_qubits],
+                             ClassicalRegister(len(all_cbits), 'cbit'))
 
     parametric_gates = {
         'Init': circuit.prepare_state,
