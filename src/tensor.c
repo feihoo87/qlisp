@@ -94,10 +94,10 @@ uint64_t pauli_xzy_tensor_element_int(uint64_t n, uint64_t r, uint64_t c)
     for (uint64_t i = 0; i < 64; i++)
     {
         x |= ((n >> 2 * i) & 1) << i;
-        z |= ((n >> 2 * i + 1) & 1) << i;
+        z |= ((n >> (2 * i + 1)) & 1) << i;
     }
 
-    if (x ^ r != c)
+    if ((x ^ r) != c)
         return 4;
 
     // 0: 1, 1: i, 2: -1, 3: -i, 4 : 0
@@ -112,12 +112,12 @@ uint64_t pauli_xyz_tensor_element_int(uint64_t n, uint64_t r, uint64_t c)
     for (uint64_t i = 0; i < 64; i++)
     {
         x |= ((n >> 2 * i) & 1) << i;
-        z |= ((n >> 2 * i + 1) & 1) << i;
+        z |= ((n >> (2 * i + 1)) & 1) << i;
     }
 
     x = x ^ z;
 
-    if (x ^ r != c)
+    if ((x ^ r) != c)
         return 4;
 
     // 0: 1, 1: i, 2: -1, 3: -i, 4 : 0
@@ -252,13 +252,13 @@ uint8_t _pauli_xzy_tensor_element_int(
 {
     size_t x = 0, z = 0;
 
-    for (int i = 0; i <= op_list_len; i++)
+    for (size_t i = 0; i <= op_list_len; i++)
     {
         x |= ((n >> 2 * i) & 1) << i;
-        z |= ((n >> 2 * i + 1) & 1) << i;
+        z |= ((n >> (2 * i + 1)) & 1) << i;
     }
 
-    if (x ^ r != c)
+    if ((x ^ r) != c)
     {
         return 4;
     }
@@ -274,7 +274,7 @@ uint8_t _pauli_xyz_tensor_element_int(
 {
     size_t x = 0, y = 0, z = 0;
 
-    for (int i = 0; i <= op_list_len; i++)
+    for (size_t i = 0; i <= op_list_len; i++)
     {
         x |= ((n >> 2 * i) & 1) << i;
         y |= ((n >> 2 * i + 1) & 1) << i;
@@ -283,7 +283,7 @@ uint8_t _pauli_xyz_tensor_element_int(
     z = y;
     x = x ^ y;
 
-    if (x ^ r != c)
+    if ((x ^ r) != c)
     {
         return 4;
     }
@@ -331,10 +331,11 @@ double _qst_mat_element(
     size_t i, size_t j)
 {
     // U[ik] * P[j, kl] * conj(U[il])
-    double re, im, re2, im2, re3, im3, tmp;
+    double re, im, re2, im2, re3, im3;
     double result = 0.0;
+    size_t dim = 1 << op_list_len;
 
-    for (size_t k = 0; k < (1 << op_list_len); k++)
+    for (size_t k = 0; k < dim; k++)
     {
         _tensor_element(gate_set, op_list_len, op_list, i, k, &re, &im);
         // printf("U[%d%d] ==> re: %f, im: %f\n", i, k, re, im);
@@ -344,7 +345,7 @@ double _qst_mat_element(
         }
         re3 = re;
         im3 = im;
-        for (size_t l = 0; l < (1 << op_list_len); l++)
+        for (size_t l = 0; l < dim; l++)
         {
             re2 = re3;
             im2 = im3;

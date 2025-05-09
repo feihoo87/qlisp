@@ -6,6 +6,32 @@
 
 #include "pauli.h"
 
+#if PY_VERSION_HEX >= 0x030D0000  /* Python 3.13.0 */
+static inline int PyLong_AsByteArray(
+    PyLongObject *v,
+    unsigned char *bytes,
+    size_t n)
+{
+    return PyLong_AsNativeBytes(
+        (PyObject *)v,
+        bytes,
+        n,
+        Py_ASNATIVEBYTES_LITTLE_ENDIAN | Py_ASNATIVEBYTES_UNSIGNED_BUFFER); // 小端序, 无符号
+}
+#else
+static inline int PyLong_AsByteArray(
+    PyLongObject *v,
+    unsigned char *bytes,
+    size_t n)
+{
+    int is_little_endian = 1; // 小端序
+    int is_signed = 0;        // 无符号
+
+    return _PyLong_AsByteArray(v, bytes, n, is_little_endian, is_signed);
+}
+#endif
+
+
 // Python C API
 
 static PyObject *pauli_mul(PyObject *self, PyObject *args)
@@ -52,26 +78,19 @@ static PyObject *pauli_mul(PyObject *self, PyObject *args)
         return NULL;
     }
 
-    int is_little_endian = 1; // 小端序
-    int is_signed = 0;        // 无符号
-
-    int ret = _PyLong_AsByteArray(
+    int ret = PyLong_AsByteArray(
         (PyLongObject *)a,
         buffer,
-        length,
-        is_little_endian,
-        is_signed);
+        length);
     if (ret == -1)
     {
         free(buffer);
         return NULL;
     }
-    ret = _PyLong_AsByteArray(
+    ret = PyLong_AsByteArray(
         (PyLongObject *)b,
         buffer + length,
-        length,
-        is_little_endian,
-        is_signed);
+        length);
     if (ret == -1)
     {
         free(buffer);
@@ -90,11 +109,23 @@ static PyObject *pauli_mul(PyObject *self, PyObject *args)
         sign += int_pauli_mul(a_data[i], b_data[i], &result[i]);
     }
 
-    PyLongObject *result_int = (PyLongObject *)_PyLong_FromByteArray(
-        (unsigned char *)result,
+#if PY_VERSION_HEX >= 0x030D0000  /* Python 3.13.0 */
+    /* 使用新公共 API */
+    PyObject *result_int = PyLong_FromNativeBytes(
+        (const void *)result,
+        (size_t)length,
+        Py_ASNATIVEBYTES_LITTLE_ENDIAN | Py_ASNATIVEBYTES_UNSIGNED_BUFFER
+    );
+#else
+    /* 使用老的私有 API（Python ≤3.12）*/
+    PyObject *result_int = (PyObject *)_PyLong_FromByteArray(
+        (const unsigned char *)result,
         length,
-        is_little_endian,
-        is_signed);
+        1,
+        0
+    );
+#endif
+
     free(buffer);
     return Py_BuildValue("iO", sign & 3, result_int);
 }
@@ -146,37 +177,28 @@ static PyObject *pauli_element(PyObject *self, PyObject *args)
         return NULL;
     }
 
-    int is_little_endian = 1; // 小端序
-    int is_signed = 0;        // 无符号
-
-    int ret = _PyLong_AsByteArray(
+    int ret = PyLong_AsByteArray(
         (PyLongObject *)r,
         buffer,
-        length,
-        is_little_endian,
-        is_signed);
+        length);
     if (ret == -1)
     {
         free(buffer);
         return NULL;
     }
-    ret = _PyLong_AsByteArray(
+    ret = PyLong_AsByteArray(
         (PyLongObject *)c,
         buffer + length,
-        length,
-        is_little_endian,
-        is_signed);
+        length);
     if (ret == -1)
     {
         free(buffer);
         return NULL;
     }
-    ret = _PyLong_AsByteArray(
+    ret = PyLong_AsByteArray(
         (PyLongObject *)N,
         buffer + 2 * length,
-        length,
-        is_little_endian,
-        is_signed);
+        length);
     if (ret == -1)
     {
         free(buffer);
@@ -251,37 +273,28 @@ static PyObject *pauli_nozero_element(PyObject *self, PyObject *args)
         return NULL;
     }
 
-    int is_little_endian = 1; // 小端序
-    int is_signed = 0;        // 无符号
-
-    int ret = _PyLong_AsByteArray(
+    int ret = PyLong_AsByteArray(
         (PyLongObject *)r,
         buffer,
-        length,
-        is_little_endian,
-        is_signed);
+        length);
     if (ret == -1)
     {
         free(buffer);
         return NULL;
     }
-    ret = _PyLong_AsByteArray(
+    ret = PyLong_AsByteArray(
         (PyLongObject *)N,
         buffer + length,
-        length,
-        is_little_endian,
-        is_signed);
+        length);
     if (ret == -1)
     {
         free(buffer);
         return NULL;
     }
-    ret = _PyLong_AsByteArray(
+    ret = PyLong_AsByteArray(
         (PyLongObject *)N,
         buffer + 2 * length,
-        length,
-        is_little_endian,
-        is_signed);
+        length);
     if (ret == -1)
     {
         free(buffer);
